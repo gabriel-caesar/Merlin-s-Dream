@@ -1,0 +1,391 @@
+{
+  "label":
+  {
+    "colours":
+    {
+      "normal_text": "#ffffff"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "14"
+    }
+  },
+
+  "text_box":
+  {
+    "colours":
+    {
+      "normal_text": "#ffffff"
+    }
+  },
+  
+  "#panel_char_name_title":
+  {
+    "colours":
+    {
+      "normal_text": "#FFD700"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    }  
+  },
+
+  "@spell_labels":
+  {
+    "font":
+    {
+      "name": "avqest",
+      "size": "11"
+    }  
+  },
+
+  "button": 
+  {
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "14"
+    },
+
+    "colours": 
+    {
+      "normal_border": "White",
+      "normal_bg": "SlateGray",
+      "normal_text": "White"
+    },
+
+    "misc": 
+    {
+      "shape": "rounded_rectangle",
+      "shape_corner_radius": "10",
+      "border_width": "2"
+    }
+
+  },
+
+  "@spell_buttons":
+  {
+    "colours":
+    {
+      "normal_bg": "#00000000",
+      "hovered_bg": "#38537a",
+      "selected_bg": "#d4a017"
+    },
+
+    "misc":
+    {
+      "shape": "rectangle",
+      "border_width": "0",
+      "tool_tip_delay": "0"
+    }
+  },
+
+  "#magic_bolt_button":
+  {
+    "images":
+    {
+      "normal_image": 
+      {
+        "path": "./assets/ui/magic_bolt_portrait.png"
+      }
+    }
+  },
+
+  "#fire_bolt_button":
+  {
+    "images":
+    {
+      "normal_image": 
+      {
+        "path": "./assets/ui/fire_bolt_portrait.png"
+      }
+    }
+  },
+
+  "#info_text_title":
+  {
+    "colours":
+    {
+      "normal_text": "#7cb2d9"
+    }
+  },
+
+  "#info_press_spacebar":
+  {
+    "colours":
+    {
+      "normal_text": "#f2bd29"
+    }
+  },
+
+  "#info_text":
+  {
+    "colours":
+    {
+      "dark_bg": "#030303"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    } 
+  },
+
+  "#spell_panel":
+  {
+    "images":
+    {
+      "background_image": 
+      {
+        "path": "./assets/ui/spell_panel.png"
+      }
+    }
+  },
+  
+  "#earn_spell_panel":
+  {
+    "images":
+    {
+      "background_image": 
+      {
+        "path": "./assets/ui/earn_spell_panel.png"
+      }
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    } 
+  },
+
+  "#earn_spell_label":
+  {
+    "colours":
+    {
+      "normal_text": "#f2bd29"
+    }
+  },
+
+  "#close_spell_panel_button":
+  {
+    "misc":
+    {
+      "shape":"rectangle"
+    },
+
+    "colours":
+    {
+      "normal_bg": "#030303",
+      "hovered_bg": "#b01919",
+      "normal_border": "#bfbfbf",
+      "hovered_border": "#591c1c",
+      "hovered_text": "#030303"
+    },
+
+    "font":
+    {
+      "size": "8"
+    }
+  },
+
+  "#label_lvl_up_label":
+  {
+    "colours":
+    {
+      "normal_text": "#5f1899"
+    }
+  },
+
+  "@spell_keys":
+  {
+
+    "misc":
+    {
+      "shape": "rectangle"
+    },
+
+    "colours": 
+    {
+      "normal_text": "#f2bd29",
+      "normal_bg": "#030303",
+      "normal_border": "#bfbfbf",
+
+      "hovered_text": "#030303",
+      "hovered_bg": "#f2bd29",
+      "hovered_border": "#bfbfbf",
+
+      "selected_text": "#000000",
+      "selected_bg": "#ffffff",
+      "selected_border": "#f2bd29"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "11"
+    }
+  },
+
+  "#earn_spell_img_container":
+  {
+
+    "misc":
+    {
+      "shape": "rectangle"
+    },
+
+    "colours":
+    {
+      "normal_bg": "#747e82",
+      "normal_border": "#bfbfbf",
+      "hovered_border": "#ffffff"
+    }
+
+  },
+
+
+  "#earn_spell_text":
+  {
+
+    "colours":
+    {
+      "dark_bg": "#030303"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    } 
+    
+  },
+
+  "#char_info_button":
+  {
+    "colours":
+    { 
+      "hovered_bg": "#00000000"
+    },
+    "images":
+    {
+      "normal_image":
+      {
+        "path": "assets/ui/character_info_button.png"
+      },
+      "hovered_image":
+      {
+        "path": "./assets/ui/character_info_button_active.png"
+      }
+    }
+
+  },
+
+  "#settings_button":
+  {
+    "colours":
+    {
+      "normal_bg":"#00000000"
+    },
+
+    "misc":
+    {
+      "border_width": "0"
+    },
+
+    "images":
+    {
+      "normal_image":
+      {
+        "path": "assets/ui/settings_button.png"
+      }
+    }
+  },
+
+  "@menu_buttons":
+  {
+    "misc":
+    {
+      "border_width": "0"
+    },
+
+    "images":
+    {
+      "normal_image":
+      {
+        "path": "./assets/ui/button_image.png"
+      }
+    },
+
+    "colours": 
+    {
+      "hovered_text": "Red"
+    }
+  },
+
+  "#main_text_label":
+  {
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    }  
+  },
+  
+  "#wave_display":
+  {
+    "font":
+    {
+      "name": "avqest",
+      "size": "30"
+    }  
+  },
+  
+  "#game_paused_title":
+  {
+    "colours":
+    {
+      "normal_text": "#ffffff"  
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "20"
+    }
+  },
+
+  "horizontal_slider":
+  {
+    "misc":
+    {
+      "enable_arrow_buttons": "0"
+    }
+  },
+
+  "#xp_bar":
+  {
+    "colours":
+    {
+      "normal_text": "#ffffff",
+      "filled_bar": "#5f1899",
+      "text_shadow": "0"
+    },
+    
+    "font":
+    {
+      "name": "avqest",
+      "size": "12",
+      "bold": "0",
+      "italic": "0"
+    }
+  }
+  
+}
