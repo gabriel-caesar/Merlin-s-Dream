@@ -39,7 +39,7 @@ class Entity(pygame.sprite.Sprite):
     self.direction = pygame.Vector2()
     self.alive = True
     self.hit_effects_list = []
-    self.spells = []
+    self.learned_spells = []
 
     self.level = level
     self.strength = strength + self.level * 3

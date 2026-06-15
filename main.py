@@ -13,7 +13,7 @@ from projectile import Projectile
 from screen_veil import ScreenVeil
 from sound_manager import SoundManager
 from spell_caster import SpellCaster
-from events.damage_bubble import XPBubble
+from events.damage_bubble import XPBubble, RegenBubble
 
 pygame.mixer.pre_init(44100, -16, 2, 512) 
 pygame.init()
@@ -38,7 +38,7 @@ LEVEL_UP = pygame.USEREVENT + 11
 # Sound manager
 sound_manager = SoundManager()
 sound_manager.load_sounds()
-sound_manager.set_global_sound_volume_to(volume=0.5)
+sound_manager.set_global_sound_volume_to(volume=0.3)
 
 # Global variables
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -90,7 +90,8 @@ def load_fresh_game(
     enemy_group=enemiesgroup, 
     enemy_name='orc',
     atk_range=20,
-    display=display
+    display=display,
+    sound_manager=sound_manager
   )
 
   enemies_list = enemiesgroup.sprites()
@@ -187,8 +188,14 @@ class Player(Entity):
       max_xp
     )
 
-    self.spell_caster = SpellCaster(entity=self, display=display)
-    self.spells = ['fire_bolt']
+    # ======== COOLDOWN FONT ========
+    self.cd_font = pygame.font.Font('./font/Avqest-eeel.ttf', 20)
+
+    self.disabled_spells = [] # Assists the cooldown timer re-enable the disabled spell on cd
+
+    self.spell_to_be_cast = None # Identifies what spell should be cast 
+    self.cursor_state = 'normal' # Helps identify if the user is using a target-spell
+    self.spell_caster = SpellCaster(entity=self, display=display, sound_manager=sound_manager)
     self.distance_from_enemy = 0
     self.atk_range = 90
     self.projectiles = []
@@ -197,23 +204,53 @@ class Player(Entity):
     self.regen_mana_timer = 240
     self.kills = 0
     self.being_targeted_by = [] # Helps with passive regeneration
-    self.cooldowns = {
-      'fire_bolt': 0,
-      'auto_atk_cd': 0
+
+    # Potions
+    self.potions = {
+      'mana': 5,
+      'health': 5,
+      'heal_amount': 50,
+      'mana_amount': 100
+    }
+
+    # ========== PLAYER SPELLS DATA ==========
+    self.spells = {
+      'magic_bolt': {
+        'cooldown': 120, # Placeholder cooldown value
+        'cost': 16,
+        'dmg': random.randint(self.intelligence - 3, self.intelligence + 3)
+      },
+      'fire_bolt': {
+        'cooldown': 180, # Placeholder cooldown value
+        'cost': 30,
+        'dmg': 300
+      },
+      'teletransport': {
+        'cooldown': 300, # Placeholder cooldown value
+        'cost': 100
+      }
+    }
+
+    # ========== PLAYER ACTIVE SPELL COOLDOWNS ==========
+    self.active_cooldowns = {
+      'magic_bolt': 0, # Defaults to 120
+      'fire_bolt': 0, # Defaults to 180
+      'teletransport': 0 # Defaults to 300
     }
 
     # ========== PLAYER CACHE ==========
     self.cache = {
       'hp': self.hp,
-      'mana': self.mana
+      'mana': self.mana,
+      'cursor': 'normal'
     }
 
     # ========== HP BAR GUI ==========
     self.bar_img = pygame.image.load('./assets/ui/player_bar.png')
     self.bar_img.convert_alpha()
     self.bar_img.set_alpha(128)
-    self.bar_rect1 = self.bar_img.get_rect(midbottom=(100, 360))
-    self.bar_rect2 = self.bar_img.get_rect(midbottom=(540, 360))
+    self.bar_rect1 = self.bar_img.get_rect(midbottom=(70, 360))
+    self.bar_rect2 = self.bar_img.get_rect(midbottom=(570, 360))
 
     self.hp_bar_filler = pygame.Rect(0,0,HPBAR_WIDTH,27)
     self.hp_bar_filler.midbottom = self.bar_rect1.midbottom
@@ -223,6 +260,48 @@ class Player(Entity):
     self.mana_bar_filler.midbottom = self.bar_rect2.midbottom
     self.mana_bar_filler.y -= 3
 
+  def consume_potion(self, type: str) -> None:
+    if self.potions[type]:
+
+      # Updating the UI
+      potion_name = type + '_potion_count'
+      ui_potion_count = gui_elements[potion_name]
+
+      if self.potions[type] - 1 > 0:
+        self.potions[type] -= 1
+      else:
+        self.potions[type] = 0
+
+      # Update the player health or mana accordingly
+      if type == 'health':
+        amount = self.potions['heal_amount']
+        bb_color = '#21ff29'
+        points_gained = self.heal(amount)
+
+      else:
+        amount = self.potions['mana_amount']
+        bb_color = "#397eff"
+        points_gained = self.gain_mana(amount)
+
+      # Create a regeneration bubble event
+      # Points gained means the real number of hp or mana the
+      # player received upon healing or gaining mana
+      regen_bb = RegenBubble(
+        value=f'+{points_gained}',
+        color=bb_color,
+        size=14,
+        pos=self.rect.center
+      )
+
+      # Manager to render all events
+      utils.event_manager.append(regen_bb)
+
+      # Play sound effect
+      sound_manager.sounds['potion'].play()
+
+      # Setting the new text to the count label
+      ui_potion_count.set_text(str(self.potions[type]))
+
   def calculate_current_bar_width(self, type: str) -> None:
     if type == 'hp':
       curr_width = (self.hp * HPBAR_WIDTH) / self.max_hp # Regra de 3
@@ -230,6 +309,40 @@ class Player(Entity):
     elif type == 'mana':
       curr_width = (self.mana * HPBAR_WIDTH) / self.max_mana # Regra de 3
       self.mana_bar_filler.width = curr_width
+
+  def update_cooldown_data(self, display: pygame.Surface) -> None:
+    for spell, cd in self.active_cooldowns.items():
+
+      # Making sure this cooldown data update runs only when on gameplay
+      if cd > 0 and not reading_earned_spell and not game_paused:
+        # Updating the backend spell cooldown
+        self.active_cooldowns[spell] -= 1
+        cd_in_seconds = int(self.active_cooldowns[spell] / 60)
+
+        timer_text = self.cd_font.render(str(cd_in_seconds), True, '#f2bd29')
+        timer_rect = gui_elements['cooldown_timer'][spell]
+
+        bg_surf = pygame.Surface((18,18))
+        bg_surf.fill(color="#55aef8")
+        bg_surf.set_alpha(200)
+
+        bg_timer_rect = gui_elements['cooldown_timer'][spell].copy()
+        bg_timer_rect.x -= 1
+        bg_timer_rect.y += 1
+        
+        # Disable the spell button
+        gui_elements['portraits'][spell].disable()
+
+        # Helps the code knows when to enable the button back again
+        if spell not in self.disabled_spells and self.active_cooldowns[spell] > 0:
+          self.disabled_spells.append(spell)
+
+        display.blit(bg_surf, bg_timer_rect)
+        display.blit(timer_text, timer_rect)
+
+      if spell in self.disabled_spells and self.active_cooldowns[spell] <= 0:
+        gui_elements['portraits'][spell].enable()
+        self.disabled_spells.remove(spell)
     
   def run_animation(self, display: pygame.Surface) -> None:
     if self.destination_tile:
@@ -261,7 +374,12 @@ class Player(Entity):
 
   def cast_spell(self, name: str) -> None:
     if name == 'fire_bolt':
-      self.spell_caster.cast_firebolt()
+      self.spell_caster.cast_firebolt(spell_data=self.spells['fire_bolt'])
+    if name == 'teletransport':
+      self.spell_caster.cast_teletransport(
+        to=mouse_click_area,
+        spell_data=self.spells['teletransport']
+      )
 
 
   def regenerate(self, type: str) -> None:
@@ -283,21 +401,28 @@ class Player(Entity):
         else:
           self.regen_mana_timer -= 1
 
-  def heal(self, amount: int) -> None:
+  def heal(self, amount: int) -> int:
+
     if self.hp + amount > self.max_hp:
+      final_healed_amount = self.max_hp - self.hp
       self.hp = self.max_hp
     else:
       self.hp += amount
+      final_healed_amount = amount
 
     self.calculate_current_bar_width('hp')
+    return final_healed_amount
 
-  def gain_mana(self, amount: int) -> None:
+  def gain_mana(self, amount: int) -> int:
     if self.mana + amount > self.max_mana:
+      final_mana_gained = self.max_mana - self.mana
       self.mana = self.max_mana
     else:
       self.mana += amount
+      final_mana_gained = amount
 
     self.calculate_current_bar_width('mana')
+    return final_mana_gained
 
   def use_mana(self, amount: int) -> None:
     if self.mana - amount < 0:
@@ -308,11 +433,11 @@ class Player(Entity):
     self.calculate_current_bar_width('mana')
 
   def auto_attack(self) -> None:
-    damage = random.randint(self.intelligence - 3, self.intelligence + 3)
-    auto_attack_cost = 16
+    damage = self.spells['magic_bolt']['dmg']
+    auto_attack_cost = self.spells['magic_bolt']['cost']
     
     if self.mana >= auto_attack_cost and self.distance_from_enemy <= self.atk_range:
-      if self.cooldowns['auto_atk_cd'] == 0 and self.target:
+      if self.active_cooldowns['magic_bolt'] == 0 and self.target:
         magic_bolt = Projectile(
           caster=self,
           name='magic_bolt', 
@@ -320,18 +445,28 @@ class Player(Entity):
           dmg_value=damage,
           target=self.target[1],
           display=display,
-          is_enemy=True
+          is_enemy=True,
+          sound_manager=sound_manager
         )
 
         self.projectiles.append(magic_bolt)
         self.use_mana(auto_attack_cost)
-        self.cooldowns['auto_atk_cd'] = 120
+        self.active_cooldowns['magic_bolt'] = self.spells['magic_bolt']['cooldown']
+
+  def update_spell_cooldowns(self) -> None:
+    # Decrease the cooldown of spells as the user levels up
+    for spell in self.spells.values():
+      spell['cooldown'] -= self.level * 2
   
   def populate_earned_spell_screen(self, spell: dict) -> None:
     # Populate the reading spell panel dynamically
     overlay_elements['img_container'].set_background_images([spell['img_surf']])
     overlay_elements['label'].set_text(spell['title'])
     overlay_elements['text'].set_text(html_text=spell['info_text'])
+    overlay_elements['text'].set_active_effect( # Typing effect
+      effect_type=pygame_gui.TEXT_EFFECT_TYPING_APPEAR,
+      params={'time_per_letter': 0.03}
+    )
     gui_elements['portraits'][spell['name']].show() # Reveal spell portrait
 
   def update_stats_upon_lvlup(self) -> None:
@@ -346,6 +481,9 @@ class Player(Entity):
     self.max_mana = self.max_mana + self.level * 2 + self.intelligence
     self.mana = self.max_mana
 
+    # Update the spell cooldowns and the number displayed on the spell infos
+    self.update_spell_cooldowns()
+
     # Update the mana and hp bar upon lvl up
     self.calculate_current_bar_width(type='hp')
     self.calculate_current_bar_width(type='mana')
@@ -357,7 +495,7 @@ class Player(Entity):
     gui_elements['char_info']['haste'].set_text(f'Haste: {self.haste}')
     gui_elements['char_info']['xp'].set_text(f'XP: {self.xp}/{self.max_xp}')
 
-  def update_points(self, type: str, amount: int) -> None:
+  def update_points(self, type: str, amount: int) -> int:
     if type == 'xp':
       if self.xp + amount >= self.max_xp:
         # Level up condition
@@ -365,8 +503,10 @@ class Player(Entity):
         self.xp = carry_over
         self.update_stats_upon_lvlup()
         pygame.event.post(pygame.event.Event(LEVEL_UP))
+        return 1
       else:
         self.xp += amount
+        return 0
 
   def check_distance_from_enemy(self):
     # Finding the Euclidean distance between player and enemy
@@ -375,14 +515,8 @@ class Player(Entity):
     player.distance_from_enemy = math.sqrt((dt_x) ** 2 + (dt_y) ** 2)
 
   def update(self, display: pygame.Surface, game_paused: bool) -> None:
-
     if not game_paused:
       self.run_animation(display)
-
-      # Refresh all cooldowns
-      for k, v in self.cooldowns.items():
-        if v > 0:
-          self.cooldowns[k] -= 1
 
       # If there are projectiles to load, render and handle them
       self.handle_projectiles(display, self.projectiles)
@@ -403,20 +537,24 @@ class Player(Entity):
 
         xp_earned = utils.check_dead_enemy_for_xp(enemies_list)
         if xp_earned:
-          xp_bb = XPBubble(
-            value=f'+{xp_earned}XP',
-            color='#5f1899',
-            size=14,
-            pos=self.rect.center
-          )
-          utils.event_manager.append(xp_bb)
-
           # Update kill count
           self.kills += 1
           gui_elements['char_info']['kills'].set_text(f'Kills: {self.kills}')
 
           # Update xp based on xp earned
-          self.update_points(type='xp', amount=xp_earned)
+          leveled_up = self.update_points(type='xp', amount=xp_earned)
+
+          # Create a experience bubble
+          xp_bb = XPBubble(
+            value=f'+{xp_earned}XP' if not leveled_up else f'LEVEL UP',
+            color="#b969fb",
+            size=14,
+            pos=self.rect.center
+          )
+          utils.event_manager.append(xp_bb)
+
+          if leveled_up:
+            sound_manager.sounds['level_up'].play()
 
           # Update the xp progress bar
           xp_percentage = self.xp / self.max_xp
@@ -482,7 +620,7 @@ for x in range(16):
 
     map_data.append(tile_data)
 
-player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data, hp=200)
+player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data)
 
 # ================ GAME USER INTERFACE ================
 # load_gui function creates and isolates all GUI elements
@@ -497,7 +635,6 @@ overlay_elements = user_interface.load_overlay_elements(overlay_manager)
 
 # Cursor related surfaces
 mouse_img = pygame.image.load('./assets/cursor/cursor_white.png')
-mouse_img = pygame.transform.scale2x(mouse_img).convert_alpha()
 mouse_rect = mouse_img.get_rect()
 mouse_click_area = pygame.Rect(mouse_rect.left, mouse_rect.top, 4, 4)
 map_indicator_img = pygame.image.load('./assets/cursor/map_indicator_white.png')
@@ -514,7 +651,8 @@ wave_manager = WaveManager(
   enemies_list=enemies_list,
   gui_elements=gui_elements,
   pause_menu_elements=pause_menu_elements,
-  screen_veil=screen_veil
+  screen_veil=screen_veil,
+  sound_manager=sound_manager
 )
     
 while True:
@@ -553,10 +691,16 @@ while True:
         screen_veil.fade = 'in'
         info_screen_elements['main_panel'].show()
 
+        info_screen_elements['main_text'].set_active_effect(
+          effect_type=pygame_gui.TEXT_EFFECT_TYPING_APPEAR,
+          params={'time_per_letter': 0.03}
+        )
+
       if event.type == FADE_OUT:
         screen_veil.fade = 'out'
         in_transition = False
         info_screen_elements['main_panel'].hide()
+        info_screen_elements['main_text'].clear_all_active_effects()
 
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_SPACE:
@@ -584,13 +728,23 @@ while True:
 
       elif show_hovered_window == 'magic_bolt_info':
         gui_elements['spells_info']['magic_bolt'].show()
+        gui_elements['cooldown_text']['magic_bolt'].show()
 
       elif show_hovered_window == 'fire_bolt_info':
         gui_elements['spells_info']['fire_bolt'].show()
+        gui_elements['cooldown_text']['fire_bolt'].show()
+
+      elif show_hovered_window == 'tp_info':
+        gui_elements['spells_info']['teletransport'].show()
+        gui_elements['cooldown_text']['teletransport'].show()
 
       else:
-        gui_elements['spells_info']['magic_bolt'].hide()
-        gui_elements['spells_info']['fire_bolt'].hide()
+        for info in gui_elements['spells_info'].values():
+          info.hide()
+
+        for cd in gui_elements['cooldown_text'].values():
+          cd.hide()
+
         gui_elements['char_info_panel'].hide()
 
     char_info_panel_hovered = gui_elements['char_info_panel'].get_abs_rect().collidepoint(mouse_click_area.center)
@@ -612,6 +766,14 @@ while True:
       mouse_click_area.center
     )
 
+    tp_hovered = gui_elements['portraits']['teletransport'].hover_point(
+      mouse_click_area.x, 
+      mouse_click_area.y
+    )
+    tp_info_hovered = gui_elements['spells_info']['teletransport'].get_abs_rect().collidepoint(
+      mouse_click_area.center
+    )
+
     if char_info_button_hovered or (char_info_panel_hovered and gui_elements['char_info_panel'].visible):
       show_hovered_window = 'char_info'
 
@@ -624,6 +786,13 @@ while True:
       (fire_bolt_info_hovered and gui_elements['spells_info']['fire_bolt'].visible)
     ):
       show_hovered_window = 'fire_bolt_info'
+
+    elif (
+      (tp_hovered and gui_elements['portraits']['teletransport'].visible)
+      or 
+      (tp_info_hovered and gui_elements['spells_info']['teletransport'].visible)
+    ):
+      show_hovered_window = 'tp_info'
 
     else:
       show_hovered_window = None
@@ -640,6 +809,15 @@ while True:
       gui_elements['player_mana_label'].set_text(text=f'Mana: {player.mana}/{player.max_mana}')
       player.cache['mana'] = player.mana
       player.calculate_current_bar_width(type='mana')
+    
+    if player.cursor_state != player.cache['cursor']:
+      mouse_img, mouse_rect, mouse_click_area = utils.change_cursor_to(player.cursor_state)
+      player.cache['cursor'] = player.cursor_state
+      
+      # Avoids a subtle bug where the cursor image blinks at 
+      # the (0,0) position of the screen before going back to 
+      # where it was suppose to be
+      mouse_rect.topleft = pygame.mouse.get_pos()
 
     # ================ BACKGROUND MOVING FRAGMENTS ================
 
@@ -656,12 +834,33 @@ while True:
       # pygame.draw.rect(display, '#ff0000', hover_area, 1)
 
       if hover_area.colliderect(mouse_click_area):
+
         if enemies_list:
+          enemy_hovered = False
+
           for e in enemies_list:
-            if e.rect.midbottom == hover_area.center:
+
+              # If either the cursor hovers on top of the tile
+              # that the enemy is standing on top of or if the enemy
+              # itself gets hovered, toggle the enemy_hovered variable
+              if (
+                e.rect.midbottom == hover_area.center or
+                mouse_click_area.colliderect(e.rect)
+              ):
+                  enemy_hovered = True
+                  break
+
+          if enemy_hovered:
               display.blit(attack_indicator_img, (tile.x, tile.y))
-            else:
+
+              if player.cursor_state != 'target': # Making sure the cursor is not in a target state
+                  player.cursor_state = 'attack'
+          else:
               display.blit(map_indicator_img, (tile.x, tile.y))
+
+              if player.cursor_state != 'target': # Making sure the cursor is not in a target state
+                  player.cursor_state = 'normal'
+
         else:
           display.blit(map_indicator_img, (tile.x, tile.y))
 
@@ -714,10 +913,24 @@ while True:
           reading_earned_spell = True 
 
           # Learn the new spell on the backend
-          player.spells.append('fire_bolt')
+          player.learned_spells.append('fire_bolt')
 
           # Load the earned spell screen
           player.populate_earned_spell_screen(spells['fire_bolt'])
+
+        elif player.level == 3:
+          overlay_elements['panel'].show()
+
+          pause_game(show_pause_menu=False) # Pauses the game
+
+          # Prevents faulty pause menu behaviors when reading the new spell
+          reading_earned_spell = True 
+
+          # Learn the new spell on the backend
+          player.learned_spells.append('teletransport')
+
+          # Load the earned spell screen
+          player.populate_earned_spell_screen(spells['teletransport'])
 
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE and player.alive:
@@ -732,17 +945,41 @@ while True:
 
           sound_manager.sounds['button_click'].play()
 
+        if event.key == pygame.K_q:
+          player.consume_potion('health')
+
+        if event.key == pygame.K_e:
+          player.consume_potion('mana')
+
         if event.key == pygame.K_1:
-          if 'fire_bolt' in player.spells:
+          if 'fire_bolt' in player.learned_spells:
             player.cast_spell('fire_bolt')
             gui_elements['keys']['1'].select() # Run click animation
             gui_elements['portraits']['fire_bolt'].select() # Run click animation
 
+        if event.key == pygame.K_2:
+          if 'teletransport' in player.learned_spells:
+            gui_elements['keys']['2'].select() # Run click animation
+            gui_elements['portraits']['teletransport'].select() # Run click animation
+            tp_cost = player.spells['teletransport']['cost']
+
+            # Telling the program to execute the teletransport 
+            # spell when player.spell_cast() is called
+            player.spell_to_be_cast = 'teletransport'
+
+            # Switching the cursor image to target
+            player.cursor_state = 'target'
+
       if event.type == pygame.KEYUP:
-        if 'fire_bolt' in player.spells:
           if event.key == pygame.K_1:
-            gui_elements['keys']['1'].unselect() # Run click animation
-            gui_elements['portraits']['fire_bolt'].unselect() # Run click animation
+            if 'fire_bolt' in player.learned_spells:
+              gui_elements['keys']['1'].unselect() # Run click animation
+              gui_elements['portraits']['fire_bolt'].unselect() # Run click animation
+
+          if event.key == pygame.K_2:
+            if 'teletransport' in player.learned_spells:
+              gui_elements['keys']['2'].unselect() # Run click animation
+              gui_elements['portraits']['teletransport'].unselect() # Run click animation
 
 
       if event.type == pygame.MOUSEBUTTONDOWN:
@@ -752,6 +989,12 @@ while True:
   
           # Checking if the tile clicked was a target to attack
           if event.button == 3:
+
+            # If the player is trying to move while with the
+            # target cursor, change it
+            if player.cursor_state == 'target':
+              player.cursor_state = 'normal'
+
             # Variable to prevent moving to the targeted tile
             enemy_found = False
 
@@ -777,6 +1020,15 @@ while True:
 
           # Unselect targeted enemy
           if event.button == 1:
+
+            # It can be any target spell chosen from the spell panel
+            if (player.spell_to_be_cast):
+              player.cast_spell(name=player.spell_to_be_cast)
+              player.spell_to_be_cast = None
+
+            if player.cursor_state == 'target':
+              player.cursor_state = 'normal'
+
             for e in enemies_list:
               if e.rect.midbottom != hover_area.center:
                 player.target = []
@@ -904,7 +1156,11 @@ while True:
     # ================ BUBBLE EVENTS MANAGER LOOP ================
     utils.run_events(display) # Bubbles like damage and xp feedback
 
+    # ================ DRAWING MAIN ELEMENTS LIKE THE SPELL PANEL ================
     gui_manager.draw_ui(display)
+
+    # ================ DRAWING THE SPELL COOLDOWNS ON TOP OF THE SPELL PANEL LAYER ================
+    player.update_cooldown_data(display)
 
     mouse_click_area.x = mousex
     mouse_click_area.y = mousey
@@ -925,5 +1181,7 @@ while True:
   display.blit(mouse_img, mouse_rect)
   # Make display 2x bigger
   screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0,0))
+
+  # c = pygame.
 
   pygame.display.update()

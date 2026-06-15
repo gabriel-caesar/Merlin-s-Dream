@@ -69,6 +69,24 @@
 
   },
 
+  "@potion_buttons":
+  {
+    "colours":
+    {
+      "normal_bg": "#2b1707",
+      "hovered_bg": "#38537a",
+      "selected_bg": "#d4a017",
+      "normal_border": "#7e5f3d"
+    },
+
+    "misc":
+    {
+      "shape": "rectangle",
+      "border_width": "1",
+      "tool_tip_delay": "0"
+    }
+  },
+
   "@spell_buttons":
   {
     "colours":
@@ -86,8 +104,44 @@
     }
   },
 
+  "@cooldown_text":
+  {
+    "colours":
+    {
+      "normal_text": "#f2bd29"
+    },
+    "font":
+    {
+      "name": "avqest",
+      "size": "14"
+    }
+  },
+
+  "#health_potion":
+  {
+    "images":
+    {
+      "normal_image":
+      {
+        "path":"./assets/ui/health_potion.png"
+      }
+    }
+  },
+
+  "#mana_potion":
+  {
+    "images":
+    {
+      "normal_image":
+      {
+        "path":"./assets/ui/mana_potion.png"
+      }
+    }
+  },
+
   "#magic_bolt_button":
   {
+
     "images":
     {
       "normal_image": 
@@ -104,6 +158,17 @@
       "normal_image": 
       {
         "path": "./assets/ui/fire_bolt_portrait.png"
+      }
+    }
+  },
+
+  "#tp_button":
+  {
+    "images":
+    {
+      "normal_image": 
+      {
+        "path": "./assets/ui/tp_portrait.png"
       }
     }
   },

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
   from screen_veil import ScreenVeil
+  from sound_manager import SoundManager
 
 class WaveManager():
   def __init__(
@@ -16,6 +17,7 @@ class WaveManager():
     gui_elements: dict,
     pause_menu_elements: dict,
     screen_veil: ScreenVeil,
+    sound_manager: SoundManager,
     wave: int = 1,
   ):
     self.current_wave = wave
@@ -27,6 +29,7 @@ class WaveManager():
     self.gui_elements = gui_elements
     self.pause_menu_elements = pause_menu_elements
     self.screen_veil = screen_veil
+    self.sound_manager = sound_manager
 
   def display_current_wave(self, wave_length):
     wave_label = self.gui_elements['wave_label']
@@ -73,7 +76,8 @@ class WaveManager():
             enemy_name=name,
             display=display,
             atk_range=90 if name == 'orc_archer' else 20,
-            wave=self.current_wave
+            wave=self.current_wave,
+            sound_manager=self.sound_manager
           )
 
         self.wave_timer = 180

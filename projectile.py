@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from hit_effect import HitEffect
 if TYPE_CHECKING:
   from entity import Entity
+  from sound_manager import SoundManager
 
 MAGIC_BOLT_COLOR = "#daf0ff"
 ARROW_COLOR = "#8EA7AE"
@@ -26,11 +27,13 @@ class Projectile():
     origin: list, 
     dmg_value: int, 
     target: dict, 
+    sound_manager: SoundManager,
     display: pygame.Surface,
     is_enemy: bool = False,
     has_particles: bool = False
   ):
-
+    
+    self.sound_manager = sound_manager
     self.caster = caster
     self.name = name
     if name == 'magic_bolt':
@@ -121,6 +124,11 @@ class Projectile():
       # Populate the hit effect list:
       hit_effect = HitEffect(target=self.target, type=self.name)
       self.caster.hit_effects_list.append(hit_effect)
+
+      # Projectile impact sound
+      if self.name == 'fire_bolt':
+        self.sound_manager.sounds['fire_bolt']['impact'].play()
+
       return 1
         
     return 0

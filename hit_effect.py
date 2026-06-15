@@ -33,9 +33,20 @@ class HitEffect():
       effect_list = list(magic_bolt_effect.values())
       self.animation_frames = effect_list
 
+    elif type == 'teletransport':
+      tp_effect = utils.get_sprites(['effects', 'tp_effect'], 'spark')
+      effect_list = list(tp_effect.values())
+      self.animation_frames = effect_list
+
     self.animation_index = 0
     self.image = self.animation_frames[0]
-    self.rect = self.image.get_rect(center=target.rect.center)
+
+    if type == 'teletransport':
+      target_pos = (target.center[0], target.center[1] - 5)
+    else:
+      target_pos = target.rect.center
+
+    self.rect = self.image.get_rect(center=target_pos)
 
   def run_animation(self, display: pygame.Surface) -> str:
     if self.animation_frames:

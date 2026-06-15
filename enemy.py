@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
   from main import Player
+  from sound_manager import SoundManager
 
 HPBAR_WIDTH = 110
 
@@ -20,6 +21,7 @@ class Enemy(Entity):
     name: str,
     atk_range: int,
     display: pygame.Surface,
+    sound_manager: SoundManager,
     wave: int = 1,
     strength: int = 10,
     intelligence: int = 10,
@@ -53,6 +55,7 @@ class Enemy(Entity):
       max_xp
     )
 
+    self.sound_manager = sound_manager
     self.display = display
     self.name = name
     self.patrol_timer = random.randint(90, 240)
@@ -125,7 +128,7 @@ class Enemy(Entity):
       )
     )
 
-  def run_animation(self) -> None:
+  def run_animation(self, is_boss: bool = False) -> None:
     if len(self.animation_frames) > 1:
 
       # ============== RUNNING ANIMATION ==============
@@ -161,6 +164,7 @@ class Enemy(Entity):
       self.image = self.animation_frames[int(self.animation_index)]
       
     self.image = pygame.transform.flip(self.image, self.flip, False)
+    if is_boss: pygame.transform.scale2x(self.image)
 
   def patrol(self, map_data: list) -> None:
     if self.patrol_timer == 0:
@@ -267,7 +271,8 @@ class Enemy(Entity):
           origin=self.rect.center, 
           dmg_value=self.damage,
           target=player,
-          display=self.display
+          display=self.display,
+          sound_manager=self.sound_manager
         )
         self.projectile_list.append(self.projectile)
       

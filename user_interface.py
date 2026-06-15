@@ -14,6 +14,9 @@ def load_gui(
   gui_manager: pygame_gui.UIManager,
   player: Player
 ) -> dict:
+  
+  # ======== FONT ========
+  cd_font = pygame.font.Font('./font/Avqest-eeel.ttf', 20)
 
   # ======== MAIN GAMEPLAY INTERFACE COMPONENTS ========
 
@@ -96,6 +99,8 @@ def load_gui(
     object_id=ObjectID(object_id='#spell_panel')
   )
 
+  # ======== MAGIC BOLT UI ELEMENTS ========
+
   magic_bolt_portrait = pygame_gui.elements.UIButton(
     text='',
     relative_rect=(-1,-1,23,23),
@@ -110,9 +115,25 @@ def load_gui(
     visible=0
   )
 
+  magic_bolt_cd_text = pygame_gui.elements.UITextBox(
+    html_text="<font color='#f2bd29'>Cooldown: 2s</font>",
+    relative_rect=(magic_bolt_portrait.rect.x - 175, magic_bolt_portrait.rect.y - 102,-1,-1),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@cooldown_text'),
+    visible=0
+  )
+
+  magicbolt_cd_timer = cd_font.render('2', True, '#f2bd29')
+  magicbolt_cd_timer_rect = magicbolt_cd_timer.get_rect(center =(
+    magic_bolt_portrait.rect.center[0],
+    magic_bolt_portrait.rect.center[1],
+  ))
+
+  # ======== FIRE BOLT UI ELEMENTS ========
+
   fire_bolt_portrait = pygame_gui.elements.UIButton(
     text='',
-    relative_rect=(21,-3,26,26),
+    relative_rect=(23,-1,23,23),
     manager=gui_manager,
     object_id=ObjectID(object_id='#fire_bolt_button', class_id='@spell_buttons'),
     container=spell_panel,
@@ -129,12 +150,70 @@ def load_gui(
     text='1',
     manager=gui_manager,
     relative_rect=(
-      fire_bolt_portrait.rect.x + 2, 
+      fire_bolt_portrait.rect.x + 3, 
       fire_bolt_portrait.rect.y - 14,
       18, 18
     ),
     object_id=ObjectID(class_id='@spell_keys')
   )
+
+  fire_bolt_cd_text = pygame_gui.elements.UITextBox(
+    html_text="<font color='#f2bd29'>Cooldown: 3s</font>",
+    relative_rect=(fire_bolt_portrait.rect.x, fire_bolt_portrait.rect.y - 102,-1,-1),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@cooldown_text'),
+    visible=0
+  )
+
+  firebolt_cd_timer = cd_font.render('3', True, '#f2bd29')
+  firebolt_cd_timer_rect = firebolt_cd_timer.get_rect(center =(
+    fire_bolt_portrait.rect.center[0],
+    fire_bolt_portrait.rect.center[1],
+  ))
+
+  # ======== TELETRANSPORT UI ELEMENTS ========
+
+  tp_portrait = pygame_gui.elements.UIButton(
+    text='',
+    relative_rect=(47,-1,25,25),
+    manager=gui_manager,
+    object_id=ObjectID(object_id='#tp_button', class_id='@spell_buttons'),
+    container=spell_panel,
+    visible=0
+  )
+
+  tp_info = pygame_gui.elements.UIPanel(
+    relative_rect=(tp_portrait.rect.x + 10, tp_portrait.rect.y - 75, 200, 80),
+    manager=gui_manager,
+    visible=0
+  )
+
+  tp_key = pygame_gui.elements.UIButton(
+    text='2',
+    manager=gui_manager,
+    relative_rect=(
+      tp_portrait.rect.x + 3, 
+      tp_portrait.rect.y - 14,
+      18, 18
+    ),
+    object_id=ObjectID(class_id='@spell_keys')
+  )
+
+  tp_cd_text = pygame_gui.elements.UITextBox(
+    html_text="<font color='#f2bd29'>Cooldown: 5s</font>",
+    relative_rect=(tp_portrait.rect.x + 10,tp_portrait.rect.y - 102,-1,-1),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@cooldown_text'),
+    visible=0
+  )
+
+  tp_cd_timer = cd_font.render('5', True, '#f2bd29')
+  tp_cd_timer_rect = tp_cd_timer.get_rect(center =(
+    tp_portrait.rect.center[0],
+    tp_portrait.rect.center[1],
+  ))
+
+  # ======== SPELLS INFO BOXES WHEN PLAYER HOVER ON TOP OF IT ========
 
   pygame_gui.elements.UITextBox(
     relative_rect=(0, 0, 200, 80),
@@ -157,6 +236,18 @@ def load_gui(
       "This is Merlin's <font color='#FF0000'>fire bolt</font>, "
       "it will be casted by the press of a button. Damage scales based on "
       "current <font color='#4169E1'>intelligence</font> levels."),
+    object_id=ObjectID(class_id='@spell_labels')
+  )
+
+  pygame_gui.elements.UITextBox(
+    relative_rect=(0, 0, 200, 80),
+    starting_height=0,
+    manager=gui_manager,
+    container=tp_info,
+    html_text=("<font color='#f2bd29'><b>Teletransport</b><br></font>"
+      "This is Merlin's <font color='#FF0000'>teletransport</font>, "
+      "it will be casted by the press of a button. In a blink of an eye will teletransport "
+      "the caster to whatever destination within range."),
     object_id=ObjectID(class_id='@spell_labels')
   )
 
@@ -238,6 +329,39 @@ def load_gui(
     }
   )
 
+  # ======== POTIONS ========
+  
+  health_potion = pygame_gui.elements.UIButton(
+    relative_rect=(132, 330, 30, 30),
+    manager=gui_manager,
+    object_id=ObjectID(object_id='#health_potion', class_id='@potion_buttons'),
+    text=''
+  )
+
+  hp_potion_count = pygame_gui.elements.UILabel(
+    relative_rect=health_potion.rect,
+    text='5',
+    object_id=ObjectID(class_id='@cooldown_text'),
+    manager=gui_manager
+  )
+  hp_potion_count.rect.x += 8
+  hp_potion_count.rect.y += 8
+
+  mana_potion = pygame_gui.elements.UIButton(
+    relative_rect=(479, 330, 30, 30),
+    manager=gui_manager,
+    object_id=ObjectID(object_id='#mana_potion', class_id='@potion_buttons'),
+    text=''
+  )
+
+  mana_potion_count = pygame_gui.elements.UILabel(
+    relative_rect=mana_potion.rect,
+    text='5',
+    object_id=ObjectID(class_id='@cooldown_text'),
+    manager=gui_manager
+  )
+  mana_potion_count.rect.x -= 8
+  mana_potion_count.rect.y += 8
 
   gui_elements = {
     'char_info_button': char_info_button,
@@ -249,9 +373,11 @@ def load_gui(
     'portraits': {
       'magic_bolt': magic_bolt_portrait,
       'fire_bolt': fire_bolt_portrait,
+      'teletransport': tp_portrait,
     },
     'keys': {
-      '1': fire_bolt_key
+      '1': fire_bolt_key,
+      '2': tp_key,
     },
     'char_info': {
       'level': char_level_label,
@@ -264,7 +390,22 @@ def load_gui(
     'spells_info': {
       'magic_bolt': magic_bolt_info,
       'fire_bolt': fire_bolt_info,
+      'teletransport': tp_info,
     },
+    'cooldown_text': {
+      'teletransport': tp_cd_text,
+      'fire_bolt': fire_bolt_cd_text,
+      'magic_bolt': magic_bolt_cd_text
+    },
+    'cooldown_timer': {
+      'teletransport': tp_cd_timer_rect,
+      'fire_bolt': firebolt_cd_timer_rect,
+      'magic_bolt': magicbolt_cd_timer_rect
+    },
+    'health_potion_count': hp_potion_count,
+    'mana_potion_count': mana_potion_count,
+    'health_potion_btn': health_potion,
+    'mana_potion_btn': mana_potion,
     'wave_panel': wave_panel,
     'wave_label': wave_label,
     'xp_bar': xp_bar
@@ -578,18 +719,19 @@ def load_info_screen(gui_manager) -> dict:
     object_id=ObjectID(object_id='#info_text_title')
   )
 
-  pygame_gui.elements.UITextBox(
+  main_text = pygame_gui.elements.UITextBox(
     html_text=(
-      "<font color='#f2bd29'>Merlin</font> is trapped in his own dream fighting creatures "
-      "he once fought in his past battles. Your job is to make him "
-      "survive as long as you can so he doesn't die in his sleep. Fight "
-      "Waves of enemies from diverse origins, such as orcs, undead and more."
-      "<br>"
-      "<br>"
-      "- Mouse right click to <font color='#f2bd29'>move</font> your character. <br><br>"
-      "- <font color='#ff0000'>Attack</font> creatures by targeting enemies with the mouse right click. <br><br>"
-      "- Merlin's base attack is an automatic <font color='#f2bd29'>magic bolt</font> with a certain attack range. <br><br>"
-      "- Level up to earn <font color='#f2bd29'>random spells</font> once forgotten by the old mage.<br><br>"
+      "<font color='#f2bd29'>Merlin</font> is ensnared within his own dream, forced to battle the creatures that haunted his past adventures. Your task is to keep the old mage alive for as long as possible, lest he perish within the realm of sleep itself. Face endless waves of foes from distant lands and dark domains, including orcs, undead horrors, and many other fearsome beings."
+
+      "<br><br>"
+
+      "- Right-click with the mouse to <font color='#f2bd29'>guide</font> Merlin across the dreamscape. <br><br>"
+
+      "- <font color='#ff0000'>Attack</font> enemies by right-clicking upon your chosen target. <br><br>"
+
+      "- <font color='#f2bd29'>Merlin's</font> basic attack is an enchanted <font color='#f2bd29'>Magic Bolt</font>, cast automatically against foes within range. <br><br>"
+
+      "- Gain levels to recover <font color='#f2bd29'>forgotten spells</font>, fragments of magic once mastered by the ancient wizard. <br><br>"
     ),
     manager=gui_manager,
     container=main_panel,
@@ -611,6 +753,7 @@ def load_info_screen(gui_manager) -> dict:
 
   info_screen_elements = {
     'main_panel': main_panel,
+    'main_text': main_text
   }
 
   return info_screen_elements

@@ -8,6 +8,7 @@ from enemy import Enemy
 
 if TYPE_CHECKING:
   from main import Player
+  from sound_manager import SoundManager
 
 
 # Manages events like damage bubbles in the main.py file
@@ -116,6 +117,7 @@ def add_n_enemies(
   enemy_name: str,
   atk_range: int,
   display: pygame.Surface,
+  sound_manager: SoundManager,
   wave: int = 1
 ) -> list:
   
@@ -138,7 +140,8 @@ def add_n_enemies(
         atk_range=atk_range,
         display=display,
         wave=wave,
-        strength=enemy_strength
+        strength=enemy_strength,
+        sound_manager=sound_manager
       )
     )
   
@@ -155,29 +158,47 @@ def get_merlins_spells_library() -> dict:
   firebolt_surf = pygame.image.load('./assets/ui/fire_bolt_portrait.png')
   firebolt_surf = pygame.transform.scale(firebolt_surf, (20,20))
 
-  tp_surf = pygame.Surface((0,0))
+  tp_surf = pygame.image.load('./assets/ui/tp_portrait.png')
+  tp_surf = pygame.transform.scale(tp_surf, (20,20))
 
   merlins_spells = {
     'fire_bolt': {
       'img_surf': firebolt_surf,
       'name': 'fire_bolt',
       'title': "Fire Bolt",
-      'info_text': """<font color='#f2bd29'>Merlin</font> remembered <font color='#ff0000'>Fire Bolt</font>, a powerful spell with a longer cooldown than your magic bolt, however with a high damage value.<br><br><font color='#f2bd29'>Merlin</font> can remember 4 spells during this dream and fire bolt is always the first one, from now on he will randomly remember other powerful tricks he used to kill these creatures in the past. <br><br><font color='#f2bd29'>This spell has to be casted by a keyboard key.</font>
+      'info_text': """<font color='#f2bd29'>Merlin</font> has remembered <font color='#ff0000'>Fire Bolt</font>, a devastating spell whose cooldown is far greater than that of his magic bolt, but whose destructive power is unmatched.<br><br><font color='#f2bd29'>Merlin</font> can recall up to 4 spells during this dream. Fire Bolt is always the first to return to his memory; as the battle rages on, he may recover other powerful incantations once used to vanquish these creatures in ages past.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
       """,
-      
-      'tp': {
-        'img_surf': tp_surf,
-        'title': "Teletransport",
-        'info_text': """
-          <font color='#f2bd29'>Merlin</font> remembered <font color='#ff0000'>Teletransport</font>,
-          a spell that few mages learned so far and can 
-          teletransport the caster to a different destination
-          in a blink of an eye at a certain range.<br><br>
+      'cooldown_text': 'Cooldown: 30s'
+    },
 
-          <font color='#f2bd29'>This spell has to be casted by a keyboard key.</font>
-        """,
-      }
+    'teletransport': {
+      'img_surf': tp_surf,
+      'name': 'teletransport',
+      'title': "Teletransport",
+      'info_text': """<font color='#f2bd29'>Merlin</font> remembered <font color='#8528d1'>Teletransport</font>, a rare spell mastered by only a handful of mages. It allows the caster to instantly travel to a target location within range, disappearing and reappearing in the blink of an eye.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
+      """,
+      'cooldown_text': 'Cooldown: 30s'
     }
   }
 
   return merlins_spells
+
+def change_cursor_to(state=str) -> tuple:
+  match state:
+    case 'target':
+      image_asset = './assets/cursor/cursor_target.png'
+    case 'normal':
+      image_asset = './assets/cursor/cursor_white.png'
+    case 'attack':
+      image_asset = './assets/cursor/cursor_attack.png'
+      
+
+  mouse_img = pygame.image.load(image_asset)
+  mouse_rect = mouse_img.get_rect()
+  mouse_click_area = pygame.Rect(
+    mouse_rect.center[0],
+    mouse_rect.center[1],
+    4,4
+  )
+
+  return mouse_img, mouse_rect, mouse_click_area
