@@ -116,12 +116,18 @@ def load_gui(
   )
 
   magic_bolt_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 2s</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 2s | Mana: 16</font>",
     relative_rect=(magic_bolt_portrait.rect.x - 175, magic_bolt_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
     visible=0
   )
+
+  magicbolt_cd_timer = cd_font.render('2', True, '#f2bd29')
+  magicbolt_cd_timer_rect = magicbolt_cd_timer.get_rect(center =(
+    magic_bolt_portrait.rect.center[0],
+    magic_bolt_portrait.rect.center[1],
+  ))
 
   magicbolt_cd_timer = cd_font.render('2', True, '#f2bd29')
   magicbolt_cd_timer_rect = magicbolt_cd_timer.get_rect(center =(
@@ -158,7 +164,7 @@ def load_gui(
   )
 
   fire_bolt_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 3s</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 3s | Mana: 30</font>",
     relative_rect=(fire_bolt_portrait.rect.x, fire_bolt_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
@@ -200,7 +206,7 @@ def load_gui(
   )
 
   tp_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 5s</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 5s | Mana: 100</font>",
     relative_rect=(tp_portrait.rect.x + 10,tp_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
@@ -213,20 +219,106 @@ def load_gui(
     tp_portrait.rect.center[1],
   ))
 
+  # ======== RADIAL BLAST UI ELEMENTS ========
+
+  radial_blast_portrait = pygame_gui.elements.UIButton(
+    text='',
+    relative_rect=(72,-1,25,25),
+    manager=gui_manager,
+    object_id=ObjectID(object_id='#radial_blast_button', class_id='@spell_buttons'),
+    container=spell_panel,
+    visible=0
+  )
+
+  radial_blast_info = pygame_gui.elements.UIPanel(
+    relative_rect=(radial_blast_portrait.rect.x - 100, radial_blast_portrait.rect.y - 75, 200, 80),
+    manager=gui_manager,
+    visible=0
+  )
+
+  radial_blast_key = pygame_gui.elements.UIButton(
+    text='3',
+    manager=gui_manager,
+    relative_rect=(
+      radial_blast_portrait.rect.x + 3, 
+      radial_blast_portrait.rect.y - 14,
+      18, 18
+    ),
+    object_id=ObjectID(class_id='@spell_keys')
+  )
+
+  radial_blast_cd_text = pygame_gui.elements.UITextBox(
+    html_text="<font color='#f2bd29'>Cooldown: 10s | Mana: 200</font>",
+    relative_rect=(radial_blast_portrait.rect.x - 100,radial_blast_portrait.rect.y - 102,-1,-1),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@cooldown_text'),
+    visible=0
+  )
+
+  radial_blast_cd_timer = cd_font.render('10', True, '#f2bd29')
+  radial_blast_cd_timer_rect = radial_blast_cd_timer.get_rect(center =(
+    radial_blast_portrait.rect.center[0],
+    radial_blast_portrait.rect.center[1],
+  ))
+
+  # ======== FIRESTORM UI ELEMENTS ========
+
+  firestorm_portrait = pygame_gui.elements.UIButton(
+    text='',
+    relative_rect=(95,-1,25,25),
+    manager=gui_manager,
+    object_id=ObjectID(object_id='#firestorm_button', class_id='@spell_buttons'),
+    container=spell_panel,
+    visible=0
+  )
+
+  firestorm_info = pygame_gui.elements.UIPanel(
+    relative_rect=(firestorm_portrait.rect.x + 10, firestorm_portrait.rect.y - 75, 200, 80),
+    manager=gui_manager,
+    visible=0
+  )
+
+  firestorm_key = pygame_gui.elements.UIButton(
+    text='4',
+    manager=gui_manager,
+    relative_rect=(
+      firestorm_portrait.rect.x + 3, 
+      firestorm_portrait.rect.y - 14,
+      18, 18
+    ),
+    object_id=ObjectID(class_id='@spell_keys')
+  )
+
+  firestorm_cd_text = pygame_gui.elements.UITextBox(
+    html_text="<font color='#f2bd29'>Cooldown: 20s | Mana: 500</font>",
+    relative_rect=(firestorm_portrait.rect.x + 10,firestorm_portrait.rect.y - 102,-1,-1),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@cooldown_text'),
+    visible=0
+  )
+
+  firestorm_cd_timer = cd_font.render('20', True, '#f2bd29')
+  firestorm_cd_timer_rect = firestorm_cd_timer.get_rect(center =(
+    firestorm_portrait.rect.center[0],
+    firestorm_portrait.rect.center[1],
+  ))
+
   # ======== SPELLS INFO BOXES WHEN PLAYER HOVER ON TOP OF IT ========
 
+  # Magic Bolt info
   pygame_gui.elements.UITextBox(
     relative_rect=(0, 0, 200, 80),
     starting_height=0,
     manager=gui_manager,
     container=magic_bolt_info,
     html_text=("<font color='#f2bd29'><b>Magic Bolt</b></font><br>"
-      "This is Merlin's <font color='#daf0ff'>magic bolt</font>, "
+      "This is Merlin's <font color='#FF0000'>magic bolt</font>, "
       "it will be casted as an auto-attack. Damage scales based on "
       "current <font color='#4169E1'>intelligence</font> levels."),
     object_id=ObjectID(class_id='@spell_labels')
   )
 
+  # Fire Bolt info
   pygame_gui.elements.UITextBox(
     relative_rect=(0, 0, 200, 80),
     starting_height=0,
@@ -239,6 +331,7 @@ def load_gui(
     object_id=ObjectID(class_id='@spell_labels')
   )
 
+  # Teletransport info
   pygame_gui.elements.UITextBox(
     relative_rect=(0, 0, 200, 80),
     starting_height=0,
@@ -248,6 +341,32 @@ def load_gui(
       "This is Merlin's <font color='#FF0000'>teletransport</font>, "
       "it will be casted by the press of a button. In a blink of an eye will teletransport "
       "the caster to whatever destination within range."),
+    object_id=ObjectID(class_id='@spell_labels')
+  )
+
+  # Radial Blast info
+  pygame_gui.elements.UITextBox(
+    relative_rect=(0, 0, 200, 80),
+    starting_height=0,
+    manager=gui_manager,
+    container=radial_blast_info,
+    html_text=("<font color='#f2bd29'><b>Radial Blast</b><br></font>"
+      "This is Merlin's <font color='#FF0000'>radial blast</font>, "
+      "it will be casted by the press of a button. Eight fireballs will hurl to "
+      "eight different directions from the tip of the wizard's staff, burning everything it hits."),
+    object_id=ObjectID(class_id='@spell_labels')
+  )
+
+  # Firestorm info
+  pygame_gui.elements.UITextBox(
+    relative_rect=(0, 0, 200, 80),
+    starting_height=0,
+    manager=gui_manager,
+    container=firestorm_info,
+    html_text=("<font color='#f2bd29'><b>Firestorm</b><br></font>"
+      "This is Merlin's <font color='#FF0000'>firestorm</font>, "
+      "it will be casted by the press of a button. Summons a meteor falling "
+      "from the skies, which when it hits the ground causes a massive destruction."),
     object_id=ObjectID(class_id='@spell_labels')
   )
 
@@ -329,7 +448,7 @@ def load_gui(
     }
   )
 
-  # ======== POTIONS ========
+  # ======== HEALTH POTIONS ========
   
   health_potion = pygame_gui.elements.UIButton(
     relative_rect=(132, 330, 30, 30),
@@ -340,12 +459,31 @@ def load_gui(
 
   hp_potion_count = pygame_gui.elements.UILabel(
     relative_rect=health_potion.rect,
-    text='5',
+    text='',
     object_id=ObjectID(class_id='@cooldown_text'),
     manager=gui_manager
   )
   hp_potion_count.rect.x += 8
   hp_potion_count.rect.y += 8
+
+  hp_potion_key = pygame_gui.elements.UIButton(
+    text='Q',
+    relative_rect=(
+      hp_potion_count.rect.x - 3,
+      hp_potion_count.rect.y - 22,
+      18,18
+    ),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@spell_keys')
+  )
+
+  healthpotion_cd_timer = cd_font.render('2', True, '#f2bd29')
+  healthpotion_cd_timer_rect = healthpotion_cd_timer.get_rect(center =(
+    health_potion.rect.center[0],
+    health_potion.rect.center[1],
+  ))
+
+  # ======== MANA POTION ========
 
   mana_potion = pygame_gui.elements.UIButton(
     relative_rect=(479, 330, 30, 30),
@@ -356,12 +494,29 @@ def load_gui(
 
   mana_potion_count = pygame_gui.elements.UILabel(
     relative_rect=mana_potion.rect,
-    text='5',
+    text='',
     object_id=ObjectID(class_id='@cooldown_text'),
     manager=gui_manager
   )
   mana_potion_count.rect.x -= 8
   mana_potion_count.rect.y += 8
+
+  mana_potion_key = pygame_gui.elements.UIButton(
+    text='E',
+    relative_rect=(
+      mana_potion_count.rect.x + 14,
+      mana_potion_count.rect.y - 22,
+      18,18
+    ),
+    manager=gui_manager,
+    object_id=ObjectID(class_id='@spell_keys')
+  )
+
+  manapotion_cd_timer = cd_font.render('2', True, '#f2bd29')
+  manapotion_cd_timer_rect = manapotion_cd_timer.get_rect(center =(
+    mana_potion.rect.center[0],
+    mana_potion.rect.center[1],
+  ))
 
   gui_elements = {
     'char_info_button': char_info_button,
@@ -374,10 +529,18 @@ def load_gui(
       'magic_bolt': magic_bolt_portrait,
       'fire_bolt': fire_bolt_portrait,
       'teletransport': tp_portrait,
+      'health_potion': health_potion,
+      'mana_potion': mana_potion,
+      'radial_blast': radial_blast_portrait,
+      'firestorm': firestorm_portrait
     },
     'keys': {
       '1': fire_bolt_key,
       '2': tp_key,
+      '3': radial_blast_key,
+      '4': firestorm_key,
+      'Q': hp_potion_key,
+      'E': mana_potion_key
     },
     'char_info': {
       'level': char_level_label,
@@ -391,16 +554,24 @@ def load_gui(
       'magic_bolt': magic_bolt_info,
       'fire_bolt': fire_bolt_info,
       'teletransport': tp_info,
+      'radial_blast': radial_blast_info,
+      'firestorm': firestorm_info
     },
     'cooldown_text': {
       'teletransport': tp_cd_text,
       'fire_bolt': fire_bolt_cd_text,
-      'magic_bolt': magic_bolt_cd_text
+      'magic_bolt': magic_bolt_cd_text,
+      'radial_blast': radial_blast_cd_text,
+      'firestorm': firestorm_cd_text
     },
     'cooldown_timer': {
       'teletransport': tp_cd_timer_rect,
       'fire_bolt': firebolt_cd_timer_rect,
-      'magic_bolt': magicbolt_cd_timer_rect
+      'magic_bolt': magicbolt_cd_timer_rect,
+      'mana_potion': manapotion_cd_timer_rect,
+      'health_potion': healthpotion_cd_timer_rect,
+      'radial_blast': radial_blast_cd_timer_rect,
+      'firestorm': firestorm_cd_timer_rect
     },
     'health_potion_count': hp_potion_count,
     'mana_potion_count': mana_potion_count,
@@ -721,17 +892,7 @@ def load_info_screen(gui_manager) -> dict:
 
   main_text = pygame_gui.elements.UITextBox(
     html_text=(
-      "<font color='#f2bd29'>Merlin</font> is ensnared within his own dream, forced to battle the creatures that haunted his past adventures. Your task is to keep the old mage alive for as long as possible, lest he perish within the realm of sleep itself. Face endless waves of foes from distant lands and dark domains, including orcs, undead horrors, and many other fearsome beings."
-
-      "<br><br>"
-
-      "- Right-click with the mouse to <font color='#f2bd29'>guide</font> Merlin across the dreamscape. <br><br>"
-
-      "- <font color='#ff0000'>Attack</font> enemies by right-clicking upon your chosen target. <br><br>"
-
-      "- <font color='#f2bd29'>Merlin's</font> basic attack is an enchanted <font color='#f2bd29'>Magic Bolt</font>, cast automatically against foes within range. <br><br>"
-
-      "- Gain levels to recover <font color='#f2bd29'>forgotten spells</font>, fragments of magic once mastered by the ancient wizard. <br><br>"
+      "<font color='#f2bd29'>Merlin</font> is ensnared within his own dream, forced to battle the creatures that haunted his past adventures. Your task is to keep the old mage alive for as long as possible, lest he perish within the realm of sleep itself. Face endless waves of foes from distant lands and dark domains."
     ),
     manager=gui_manager,
     container=main_panel,
@@ -804,7 +965,7 @@ def load_overlay_elements(gui_manager: pygame_gui.UIManager) -> dict:
 
   close_spell_panel_button = pygame_gui.elements.UIButton(
     text='X',
-    relative_rect=(-24,-2,22,24),
+    relative_rect=(-26,-2,24, 22),
     container=earn_spell_panel,
     object_id=ObjectID(object_id='#close_spell_panel_button'),
     anchors={'top':'top','right':'right'}

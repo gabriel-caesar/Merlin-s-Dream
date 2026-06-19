@@ -50,7 +50,7 @@ class Projectile():
 
     if name == 'ranged_hit':
       self.color = ARROW_COLOR
-      self.bb_color = ARROW_COLOR
+      self.bb_color = ENEMY_BB_COLOR
       self.rect = pygame.Rect(origin[0], origin[1], 8, 8)
       self.speed = 6
 
@@ -118,7 +118,12 @@ class Projectile():
     self.rect.center = (int(self.pos[0]), int(self.pos[1]))
 
     if self.rect.colliderect(self.target.rect):
-      self.target.take_damage(self.dmg, is_enemy=self.is_enemy, bb_color=self.bb_color)
+      self.target.take_damage(
+        self.dmg, 
+        is_enemy=self.is_enemy, 
+        bb_color=self.bb_color,
+        sound_manager=self.sound_manager
+      )
       self.target.calculate_current_bar_width(type='hp')
 
       # Populate the hit effect list:
@@ -126,8 +131,11 @@ class Projectile():
       self.caster.hit_effects_list.append(hit_effect)
 
       # Projectile impact sound
-      if self.name == 'fire_bolt':
-        self.sound_manager.sounds['fire_bolt']['impact'].play()
+      match self.name:
+        case 'fire_bolt':
+          self.sound_manager.sounds['fire_bolt']['impact'].play()
+        case 'magic_bolt':
+          self.sound_manager.sounds['magic_bolt']['impact'].play()          
 
       return 1
         

@@ -104,8 +104,7 @@ class Enemy(Entity):
     self.level_container_rect = self.level_container_img.get_rect(
       center=(
         self.hp_bar_rect.center[0],
-        self.hp_bar_rect.center[1] + 20
-
+        self.hp_bar_rect.center[1] + 19
       )
     )
 
@@ -259,15 +258,16 @@ class Enemy(Entity):
     else: 
       if type == 'slash':
         global slash_imgs_list
-        player.take_damage(self.damage, bb_color="#ff0000")
+        player.take_damage(self.damage, bb_color="#ff0000", sound_manager=self.sound_manager)
         player.calculate_current_bar_width('hp')
-        hit_effect = HitEffect(target=player, type=type) # type == slash
+        hit_effect = HitEffect(target=player, type=type) # Attention: type == slash
         self.hit_effects_list.append(hit_effect)
+        self.sound_manager.sounds['orc']['swing'].play() # Play the weapon swing sound()
 
       elif type == 'ranged_hit':
         self.projectile = Projectile(
           caster=self,
-          name=type, 
+          name=type, # Attention: name='ranged_hit'
           origin=self.rect.center, 
           dmg_value=self.damage,
           target=player,
@@ -275,6 +275,7 @@ class Enemy(Entity):
           sound_manager=self.sound_manager
         )
         self.projectile_list.append(self.projectile)
+        self.sound_manager.sounds['orc']['arrow'].play() # Play the shooting arrow sound
       
       self.attacking = True
       self.atk_cooldown = 120
@@ -295,8 +296,15 @@ class Enemy(Entity):
         # loop runs until the dead enemy corpse vanishes through self.vanish_timer
         if self.alive:
           player.target = []
+
+          # Play orc death sound once
+          if 'orc' in self.name:
+            index = random.randint(0,2)
+            self.sound_manager.sounds['orc_death_sounds'][str(index)].play()
+
           if self in player.being_targeted_by:
             player.being_targeted_by.remove(self)
+
           self.alive = False
 
         self.animation_frames = []

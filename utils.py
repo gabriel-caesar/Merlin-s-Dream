@@ -126,10 +126,12 @@ def add_n_enemies(
     case 'orc_axe':
       enemy_strength = 30
       enemy_hp = random.randint(200, 250) + (wave * 2)
+      enemy_level = random.randint(5,8)
 
     case _: # Default
       enemy_strength = 10
       enemy_hp = random.randint(30,60) + (wave * 2)
+      enemy_level = 1
 
   for _ in range(n):
     enemy_group.add(
@@ -139,6 +141,7 @@ def add_n_enemies(
         hp=enemy_hp,
         atk_range=atk_range,
         display=display,
+        level=enemy_level,
         wave=wave,
         strength=enemy_strength,
         sound_manager=sound_manager
@@ -160,15 +163,20 @@ def get_merlins_spells_library() -> dict:
 
   tp_surf = pygame.image.load('./assets/ui/tp_portrait.png')
   tp_surf = pygame.transform.scale(tp_surf, (20,20))
+  
+  radial_blast_surf = pygame.image.load('./assets/ui/radial_blast_portrait.png')
+  radial_blast_surf = pygame.transform.scale(radial_blast_surf, (32,32))
+
+  firestorm_surf = pygame.image.load('./assets/ui/firestorm_portrait.png')
+  firestorm_surf = pygame.transform.scale(firestorm_surf, (32,32))
 
   merlins_spells = {
     'fire_bolt': {
       'img_surf': firebolt_surf,
       'name': 'fire_bolt',
       'title': "Fire Bolt",
-      'info_text': """<font color='#f2bd29'>Merlin</font> has remembered <font color='#ff0000'>Fire Bolt</font>, a devastating spell whose cooldown is far greater than that of his magic bolt, but whose destructive power is unmatched.<br><br><font color='#f2bd29'>Merlin</font> can recall up to 4 spells during this dream. Fire Bolt is always the first to return to his memory; as the battle rages on, he may recover other powerful incantations once used to vanquish these creatures in ages past.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
+      'info_text': """<font color='#f2bd29'>Merlin</font> has remembered <font color='#ff0000'>Fire Bolt</font>, a devastating spell whose cooldown is far greater than that of his magic bolt, but whose destructive power is unmatched.<br><br><font color='#f2bd29'>Merlin</font> can recall up to 4 spells during this dream.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
       """,
-      'cooldown_text': 'Cooldown: 30s'
     },
 
     'teletransport': {
@@ -177,8 +185,23 @@ def get_merlins_spells_library() -> dict:
       'title': "Teletransport",
       'info_text': """<font color='#f2bd29'>Merlin</font> remembered <font color='#8528d1'>Teletransport</font>, a rare spell mastered by only a handful of mages. It allows the caster to instantly travel to a target location within range, disappearing and reappearing in the blink of an eye.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
       """,
-      'cooldown_text': 'Cooldown: 30s'
-    }
+    },
+
+    'radial_blast': {
+      'img_surf': radial_blast_surf,
+      'name': 'radial_blast',
+      'title': "Radial Blast",
+      'info_text': """<font color='#f2bd29'>Merlin</font> remembered <font color='#8528d1'>Radial Blast</font>, used to defeat several enemies at once. When cast, eight fire balls are shot in eight different directions from the caster's staff, burning everything it hits.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
+      """,
+    },
+
+    'firestorm': {
+      'img_surf': firestorm_surf,
+      'name': 'firestorm',
+      'title': "Firestorm",
+      'info_text': """<font color='#f2bd29'>Merlin</font> remembered <font color='#8528d1'>Firestorm</font>, his most powerful spell, once used to defeat his greatest enemy, a dragon from the north lands. When cast, the wizard calls the power of the skies, summoning a giant meteor that lands causing a massive destruction.<br><br><font color='#f2bd29'>This spell must be cast using a keyboard key.</font>
+      """,
+    },
   }
 
   return merlins_spells

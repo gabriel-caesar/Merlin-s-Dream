@@ -9,7 +9,6 @@ import main_menu
 
 from wave_manager import WaveManager
 from entity import Entity
-from projectile import Projectile
 from screen_veil import ScreenVeil
 from sound_manager import SoundManager
 from spell_caster import SpellCaster
@@ -19,9 +18,12 @@ pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
 pygame.mixer.set_num_channels(64) # Handles more sounds at once
 clock = pygame.Clock()
+
 in_main_menu = True
 game_paused = False
 in_transition = False
+info_screen_page = 1
+play_text_bleep = False
 player_died_game_over = False
 keyboard_key = pygame.key.get_pressed()
 
@@ -44,7 +46,7 @@ sound_manager.set_global_sound_volume_to(volume=0.3)
 screen = pygame.display.set_mode(WINDOW_SIZE)
 display = pygame.Surface(DISPLAY_SIZE)
 screen_veil = ScreenVeil(display)
-pygame.display.set_caption('Random Shooter')
+pygame.display.set_caption("Merlin's Dream")
 # Plays the main menu theme
 utils.play_music_theme(vol=0.3, type='maintheme')
 
@@ -188,6 +190,10 @@ class Player(Entity):
       max_xp
     )
 
+    # Keeps coherence with the enemy class and prevent errors
+    # when calling shared funtions dependent on the entity name
+    self.name = 'Merlin'
+
     # ======== COOLDOWN FONT ========
     self.cd_font = pygame.font.Font('./font/Avqest-eeel.ttf', 20)
 
@@ -209,6 +215,8 @@ class Player(Entity):
     self.potions = {
       'mana': 5,
       'health': 5,
+      'health_cd': 300,
+      'mana_cd': 300,
       'heal_amount': 50,
       'mana_amount': 100
     }
@@ -223,11 +231,19 @@ class Player(Entity):
       'fire_bolt': {
         'cooldown': 180, # Placeholder cooldown value
         'cost': 30,
-        'dmg': 300
+        'dmg': 80
       },
       'teletransport': {
         'cooldown': 300, # Placeholder cooldown value
         'cost': 100
+      },
+      'radial_blast': {
+        'cooldown': 600,
+        'cost': 200
+      },
+      'firestorm': {
+        'cooldown': 1200,
+        'cost': 500
       }
     }
 
@@ -235,7 +251,9 @@ class Player(Entity):
     self.active_cooldowns = {
       'magic_bolt': 0, # Defaults to 120
       'fire_bolt': 0, # Defaults to 180
-      'teletransport': 0 # Defaults to 300
+      'teletransport': 0, # Defaults to 300
+      'health_potion': 0, # Defaults to 300
+      'mana_potion': 0 # Defaults to 300
     }
 
     # ========== PLAYER CACHE ==========
@@ -260,8 +278,22 @@ class Player(Entity):
     self.mana_bar_filler.midbottom = self.bar_rect2.midbottom
     self.mana_bar_filler.y -= 3
 
+  def reset_ui_properties(self) -> None:
+    # Reseting the health potions count
+    hp_potion_count = gui_elements['health_potion_count']
+    hp_potion_count.set_text(str(self.potions['health']))
+
+    # Reseting the mana potions count
+    mana_potion_count = gui_elements['mana_potion_count']
+    mana_potion_count.set_text(str(self.potions['mana']))
+
+    # Hides away spells learned in the previous gameplay
+    for spell_name, element in gui_elements['portraits'].items():
+      if spell_name != 'magic_bolt' and 'potion' not in spell_name:
+        element.hide()
+
   def consume_potion(self, type: str) -> None:
-    if self.potions[type]:
+    if self.potions[type] and self.active_cooldowns[f'{type}_potion'] <= 0:
 
       # Updating the UI
       potion_name = type + '_potion_count'
@@ -283,9 +315,9 @@ class Player(Entity):
         bb_color = "#397eff"
         points_gained = self.gain_mana(amount)
 
-      # Create a regeneration bubble event
-      # Points gained means the real number of hp or mana the
-      # player received upon healing or gaining mana
+      # Points gained is the actual amount of HP/Mana restored,
+      # which may be lower than the potion's value if the player
+      # is close to their maximum HP/Mana.
       regen_bb = RegenBubble(
         value=f'+{points_gained}',
         color=bb_color,
@@ -301,6 +333,9 @@ class Player(Entity):
 
       # Setting the new text to the count label
       ui_potion_count.set_text(str(self.potions[type]))
+
+      # Start a new cooldown
+      self.active_cooldowns[f'{type}_potion'] = self.potions[f'{type}_cd']
 
   def calculate_current_bar_width(self, type: str) -> None:
     if type == 'hp':
@@ -322,8 +357,8 @@ class Player(Entity):
         timer_text = self.cd_font.render(str(cd_in_seconds), True, '#f2bd29')
         timer_rect = gui_elements['cooldown_timer'][spell]
 
-        bg_surf = pygame.Surface((18,18))
-        bg_surf.fill(color="#55aef8")
+        bg_surf = pygame.Surface((18,22))
+        bg_surf.fill(color="#272f35")
         bg_surf.set_alpha(200)
 
         bg_timer_rect = gui_elements['cooldown_timer'][spell].copy()
@@ -375,11 +410,13 @@ class Player(Entity):
   def cast_spell(self, name: str) -> None:
     if name == 'fire_bolt':
       self.spell_caster.cast_firebolt(spell_data=self.spells['fire_bolt'])
-    if name == 'teletransport':
+    elif name == 'teletransport':
       self.spell_caster.cast_teletransport(
         to=mouse_click_area,
         spell_data=self.spells['teletransport']
       )
+    elif name == 'magic_bolt':
+      self.spell_caster.cast_magicbolt(spell_data=self.spells['magic_bolt'])
 
 
   def regenerate(self, type: str) -> None:
@@ -433,25 +470,7 @@ class Player(Entity):
     self.calculate_current_bar_width('mana')
 
   def auto_attack(self) -> None:
-    damage = self.spells['magic_bolt']['dmg']
-    auto_attack_cost = self.spells['magic_bolt']['cost']
-    
-    if self.mana >= auto_attack_cost and self.distance_from_enemy <= self.atk_range:
-      if self.active_cooldowns['magic_bolt'] == 0 and self.target:
-        magic_bolt = Projectile(
-          caster=self,
-          name='magic_bolt', 
-          origin=self.rect.center, 
-          dmg_value=damage,
-          target=self.target[1],
-          display=display,
-          is_enemy=True,
-          sound_manager=sound_manager
-        )
-
-        self.projectiles.append(magic_bolt)
-        self.use_mana(auto_attack_cost)
-        self.active_cooldowns['magic_bolt'] = self.spells['magic_bolt']['cooldown']
+    self.cast_spell(name='magic_bolt')
 
   def update_spell_cooldowns(self) -> None:
     # Decrease the cooldown of spells as the user levels up
@@ -547,7 +566,7 @@ class Player(Entity):
           # Create a experience bubble
           xp_bb = XPBubble(
             value=f'+{xp_earned}XP' if not leveled_up else f'LEVEL UP',
-            color="#b969fb",
+            color="#a600ff",
             size=14,
             pos=self.rect.center
           )
@@ -620,7 +639,9 @@ for x in range(16):
 
     map_data.append(tile_data)
 
-player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data)
+player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data, intelligence=200)
+
+
 
 # ================ GAME USER INTERFACE ================
 # load_gui function creates and isolates all GUI elements
@@ -644,6 +665,10 @@ pygame.mouse.set_visible(False)
 
 # UI element hover visibility flags
 show_hovered_window = None
+
+# Update the player potion count 
+gui_elements['health_potion_count'].set_text(str(player.potions['health']))
+gui_elements['mana_potion_count'].set_text(str(player.potions['mana']))
 
 # Wave manager
 wave_manager = WaveManager(
@@ -681,7 +706,9 @@ while True:
       in_transition = True
       pygame.event.post(pygame.event.Event(FADE_IN))
 
-  elif in_transition:
+  elif in_transition:      
+    bleep_index = random.randint(0,2)
+
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         pygame.quit()
@@ -690,6 +717,10 @@ while True:
       if event.type == FADE_IN:
         screen_veil.fade = 'in'
         info_screen_elements['main_panel'].show()
+
+        # Play text bleep sound in a loop
+        # Index randoms through three different options of bleep sounds
+        sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
 
         info_screen_elements['main_text'].set_active_effect(
           effect_type=pygame_gui.TEXT_EFFECT_TYPING_APPEAR,
@@ -702,9 +733,39 @@ while True:
         info_screen_elements['main_panel'].hide()
         info_screen_elements['main_text'].clear_all_active_effects()
 
+      if event.type == pygame_gui.UI_TEXT_EFFECT_FINISHED:
+        # Stop the text bleep sound loop
+        sound_manager.play_bleep_sound(play=0)
+
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_SPACE:
-          pygame.event.post(pygame.event.Event(FADE_OUT))
+          sound_manager.sounds['button_click_2'].play()
+
+          # Change page to read more about the game
+          if info_screen_page >= 1 and info_screen_page < 3:
+            info_screen_page += 1 # Turn the page
+
+            # Applying different text to different pages
+            if info_screen_page == 2:
+              info_screen_elements['main_text'].set_text("""<font color='#f2bd29'>Instructions:</font><br><br>- Right-click with the mouse to <font color='#f2bd29'>guide</font> Merlin across the dreamscape. <br><br>- <font color='#ff0000'>Attack</font> enemies by right-clicking upon your chosen target.""")
+
+            elif info_screen_page == 3:
+              info_screen_elements['main_text'].set_text("""<font color='#f2bd29'>Instructions:</font><br>- <font color='#f2bd29'>Merlin's</font> basic attack is an enchanted <font color='#f2bd29'>Magic Bolt</font>, cast automatically against foes within range. <br><br>- Gain levels to recover <font color='#f2bd29'>forgotten spells</font>, fragments of magic once mastered by the ancient wizard. <br><br>""")
+
+            # Run typing effect
+            info_screen_elements['main_text'].set_active_effect(
+              effect_type=pygame_gui.TEXT_EFFECT_TYPING_APPEAR,
+              params={'time_per_letter': 0.03}
+            )
+            # Stop all bleeping sounds if any
+            sound_manager.play_bleep_sound(play=0)
+            # Play text bleep sound in a loop
+            # Index randoms through three different options of bleep sounds
+            sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
+
+          else:
+            sound_manager.play_bleep_sound(play=0)
+            pygame.event.post(pygame.event.Event(FADE_OUT))
 
       pause_menu_ui_manager.process_events(event)
 
@@ -737,6 +798,14 @@ while True:
       elif show_hovered_window == 'tp_info':
         gui_elements['spells_info']['teletransport'].show()
         gui_elements['cooldown_text']['teletransport'].show()
+
+      elif show_hovered_window == 'radial_blast_info':
+        gui_elements['spells_info']['radial_blast'].show()
+        gui_elements['cooldown_text']['radial_blast'].show()
+
+      elif show_hovered_window == 'firestorm_info':
+        gui_elements['spells_info']['firestorm'].show()
+        gui_elements['cooldown_text']['firestorm'].show()
 
       else:
         for info in gui_elements['spells_info'].values():
@@ -774,6 +843,22 @@ while True:
       mouse_click_area.center
     )
 
+    radial_blast_hovered = gui_elements['portraits']['radial_blast'].hover_point(
+      mouse_click_area.x, 
+      mouse_click_area.y
+    )
+    radial_blast_info_hovered = gui_elements['spells_info']['radial_blast'].get_abs_rect().collidepoint(
+      mouse_click_area.center
+    )
+
+    firestorm_hovered = gui_elements['portraits']['firestorm'].hover_point(
+      mouse_click_area.x, 
+      mouse_click_area.y
+    )
+    firestorm_info_hovered = gui_elements['spells_info']['firestorm'].get_abs_rect().collidepoint(
+      mouse_click_area.center
+    )
+
     if char_info_button_hovered or (char_info_panel_hovered and gui_elements['char_info_panel'].visible):
       show_hovered_window = 'char_info'
 
@@ -793,6 +878,20 @@ while True:
       (tp_info_hovered and gui_elements['spells_info']['teletransport'].visible)
     ):
       show_hovered_window = 'tp_info'
+      
+    elif (
+      (radial_blast_hovered and gui_elements['portraits']['radial_blast'].visible)
+      or 
+      (radial_blast_info_hovered and gui_elements['spells_info']['radial_blast'].visible)
+    ):
+      show_hovered_window = 'radial_blast_info'
+
+    elif (
+      (firestorm_hovered and gui_elements['portraits']['firestorm'].visible)
+      or 
+      (firestorm_info_hovered and gui_elements['spells_info']['firestorm'].visible)
+    ):
+      show_hovered_window = 'firestorm_info'
 
     else:
       show_hovered_window = None
@@ -876,6 +975,12 @@ while True:
         screen_veil.toggle = not screen_veil.toggle
 
       if event.type == GO_TO_MAIN_MENU:
+
+        # Set the info screen pages to 1
+        info_screen_page = 1
+
+        # Reset the first page content to the default text
+        info_screen_elements['main_text'].set_text("""<font color='#f2bd29'>Merlin</font> is ensnared within his own dream, forced to battle the creatures that haunted his past adventures. Your task is to keep the old mage alive for as long as possible, lest he perish within the realm of sleep itself. Face endless waves of foes from distant lands and dark domains.""")
         
         # When player goes from the gameplay screen to the main menu
         if game_over_elements['main_panel'].visible:
@@ -891,6 +996,10 @@ while True:
 
         player, enemies_list, enemiesgroup = load_fresh_game(map_data, gui_elements)
 
+        # Clear learned spells from previous gameplay
+        # Reset used potions
+        player.reset_ui_properties()
+
         # Update the player hp and mana bar label values
         gui_elements['player_hp_label'].set_text(text=f'Health: {player.hp}/{player.max_hp}')
         gui_elements['player_mana_label'].set_text(text=f'Mana: {player.mana}/{player.max_mana}')
@@ -901,6 +1010,7 @@ while True:
         in_main_menu = True
 
       if event.type == LEVEL_UP:
+        bleep_index = random.randint(0,2)
         spells = utils.get_merlins_spells_library()
         # Show the reading spell panel
 
@@ -911,12 +1021,13 @@ while True:
 
           # Prevents faulty pause menu behaviors when reading the new spell
           reading_earned_spell = True 
+          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
 
           # Learn the new spell on the backend
-          player.learned_spells.append('fire_bolt')
+          player.learned_spells.append('firestorm')
 
           # Load the earned spell screen
-          player.populate_earned_spell_screen(spells['fire_bolt'])
+          player.populate_earned_spell_screen(spells['firestorm'])
 
         elif player.level == 3:
           overlay_elements['panel'].show()
@@ -925,12 +1036,50 @@ while True:
 
           # Prevents faulty pause menu behaviors when reading the new spell
           reading_earned_spell = True 
+          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
 
           # Learn the new spell on the backend
+          player.learned_spells.append('radial_blast')
+
+          # Load the earned spell screen
+          player.populate_earned_spell_screen(spells['radial_blast'])
+
+
+        elif player.level == 4:
+          overlay_elements['panel'].show()
+
+          pause_game(show_pause_menu=False) # Pauses the game
+
+          # Prevents faulty pause menu behaviors when reading the new spell
+          reading_earned_spell = True 
+          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
+
+          # Learn the new spell on the backend
+          player.learned_spells.append('fire_bolt')
+
+          # Load the earned spell screen
+          player.populate_earned_spell_screen(spells['fire_bolt'])
+
+        elif player.level == 5:
+          overlay_elements['panel'].show()
+
+          pause_game(show_pause_menu=False) # Pauses the game
+
+          # Prevents faulty pause menu behaviors when reading the new spell
+          reading_earned_spell = True 
+          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
+
+          # Learn the new spell on the backend 
           player.learned_spells.append('teletransport')
 
           # Load the earned spell screen
           player.populate_earned_spell_screen(spells['teletransport'])
+
+        
+
+      if event.type == pygame_gui.UI_TEXT_EFFECT_FINISHED:
+        # Stop the text bleep sound loop
+        sound_manager.play_bleep_sound(play=0)
 
       if event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE and player.alive:
@@ -940,6 +1089,10 @@ while True:
           # clicking ESC, then hide the spell screen, unpause the
           # game and toggle the reading_earned_spell variable to False
           if reading_earned_spell:
+            # Play button sound
+            sound_manager.sounds['button_click_2'].play()
+            # Stop text bleeping
+            sound_manager.play_bleep_sound(play=0)
             overlay_elements['panel'].hide()
             reading_earned_spell = False
 
@@ -947,9 +1100,11 @@ while True:
 
         if event.key == pygame.K_q:
           player.consume_potion('health')
+          gui_elements['keys']['Q'].select()
 
         if event.key == pygame.K_e:
           player.consume_potion('mana')
+          gui_elements['keys']['E'].select()
 
         if event.key == pygame.K_1:
           if 'fire_bolt' in player.learned_spells:
@@ -970,6 +1125,18 @@ while True:
             # Switching the cursor image to target
             player.cursor_state = 'target'
 
+        if event.key == pygame.K_3:
+          if 'radial_blast' in player.learned_spells:
+            player.cast_spell('radial_blast')
+            gui_elements['keys']['3'].select() # Run click animation
+            gui_elements['portraits']['radial_blast'].select() # Run click animation
+
+        if event.key == pygame.K_4:
+          if 'firestorm' in player.learned_spells:
+            player.cast_spell('firestorm')
+            gui_elements['keys']['4'].select() # Run click animation
+            gui_elements['portraits']['firestorm'].select() # Run click animation
+
       if event.type == pygame.KEYUP:
           if event.key == pygame.K_1:
             if 'fire_bolt' in player.learned_spells:
@@ -981,6 +1148,22 @@ while True:
               gui_elements['keys']['2'].unselect() # Run click animation
               gui_elements['portraits']['teletransport'].unselect() # Run click animation
 
+          if event.key == pygame.K_3:
+            if 'radial_blast' in player.learned_spells:
+              gui_elements['keys']['3'].unselect() # Run click animation
+              gui_elements['portraits']['radial_blast'].unselect() # Run click animation
+
+          if event.key == pygame.K_4:
+            if 'firestorm' in player.learned_spells:
+              gui_elements['keys']['4'].unselect() # Run click animation
+              gui_elements['portraits']['firestorm'].unselect() # Run click animation
+          
+          if event.key == pygame.K_q:
+            gui_elements['keys']['Q'].unselect()
+
+          if event.key == pygame.K_e:
+            gui_elements['keys']['E'].unselect()
+
 
       if event.type == pygame.MOUSEBUTTONDOWN:
         for data in map_data:
@@ -989,7 +1172,7 @@ while True:
   
           # Checking if the tile clicked was a target to attack
           if event.button == 3:
-
+            
             # If the player is trying to move while with the
             # target cursor, change it
             if player.cursor_state == 'target':
@@ -1004,6 +1187,7 @@ while True:
                   if e.rect.midbottom == hover_area.center or e.rect.colliderect(mouse_click_area):
                     player.target = [data, e]
                     enemy_found = True
+                    sound_manager.sounds['click_3_sound'].play() # Play sound
                     break
 
               if not enemy_found:
@@ -1020,6 +1204,8 @@ while True:
 
           # Unselect targeted enemy
           if event.button == 1:
+            # Play clicking sound
+            sound_manager.sounds['click_1_sound'].play()
 
             # It can be any target spell chosen from the spell panel
             if (player.spell_to_be_cast):
@@ -1077,6 +1263,10 @@ while True:
           # clicking ESC, then hide the spell screen, unpause the
           # game and toggle the reading_earned_spell variable to False
           if reading_earned_spell:
+            # Play button sound
+            sound_manager.sounds['button_click_2'].play()
+            # Stoping all bleeping sounds
+            sound_manager.play_bleep_sound(play=0)
             overlay_elements['panel'].hide()
             reading_earned_spell = False
 

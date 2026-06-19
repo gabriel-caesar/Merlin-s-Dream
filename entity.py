@@ -1,12 +1,14 @@
 from __future__ import annotations
 import pygame
-from events.damage_bubble import DamageBubble
 import utils
+import random
+from events.damage_bubble import DamageBubble
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
   from projectile import Projectile
+  from sound_manager import SoundManager
 
 class Entity(pygame.sprite.Sprite):
   def __init__(
@@ -77,12 +79,20 @@ class Entity(pygame.sprite.Sprite):
 
   def is_dead(self, enemies_list: list = []) -> bool:
     if self.hp <= 0:
+
       if enemies_list:
         enemies_list = list(filter(lambda e: e.hp > 0, enemies_list))
-        print(len(enemies_list))
+
       return True
     
-  def take_damage(self, dmg: int, bb_color: str = '#ffffff', is_enemy: bool = False) -> None:
+  def take_damage(
+    self, 
+    dmg: int, 
+    sound_manager: SoundManager,
+    bb_color: str = '#ffffff', 
+    is_enemy: bool = False
+  ) -> None:
+    
     # Caping the damage received
     if self.hp - dmg <= 0:
       self.hp = 0
@@ -92,8 +102,9 @@ class Entity(pygame.sprite.Sprite):
     new_damage_bb = DamageBubble(dmg, bb_color, 14, self.rect.midtop)
     utils.event_manager.append(new_damage_bb)
 
-    # If it is an enemy entity, recalculate its hp points info
+    # If it is an enemy entity
     if is_enemy:
+      # Recalculate its hp points info
       creature_info_font = pygame.font.Font('./font/Avqest-eeel.ttf', 11)
       self.hp_points_surf = creature_info_font.render(f'{self.hp}/{self.max_hp}', True, '#ffffff')
 

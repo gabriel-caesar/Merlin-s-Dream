@@ -108,12 +108,12 @@
   {
     "colours":
     {
-      "normal_text": "#f2bd29"
+      "normal_text": "#ffffff"
     },
     "font":
     {
       "name": "avqest",
-      "size": "14"
+      "size": "11"
     }
   },
 
@@ -169,6 +169,28 @@
       "normal_image": 
       {
         "path": "./assets/ui/tp_portrait.png"
+      }
+    }
+  },
+  
+  "#radial_blast_button":
+  {
+    "images":
+    {
+      "normal_image": 
+      {
+        "path": "./assets/ui/radial_blast_portrait.png"
+      }
+    }
+  },
+
+  "#firestorm_button":
+  {
+    "images":
+    {
+      "normal_image": 
+      {
+        "path": "./assets/ui/firestorm_portrait.png"
       }
     }
   },
@@ -257,7 +279,8 @@
 
     "font":
     {
-      "size": "8"
+      "name": "avqest",
+      "size": "10"
     }
   },
 
