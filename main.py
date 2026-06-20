@@ -12,7 +12,9 @@ from entity import Entity
 from screen_veil import ScreenVeil
 from sound_manager import SoundManager
 from spell_caster import SpellCaster
+from projectile import RadialBlast
 from events.damage_bubble import XPBubble, RegenBubble
+from warning_manager import Warning
 
 pygame.mixer.pre_init(44100, -16, 2, 512) 
 pygame.init()
@@ -22,6 +24,7 @@ clock = pygame.Clock()
 in_main_menu = True
 game_paused = False
 in_transition = False
+shake_screen = False
 info_screen_page = 1
 play_text_bleep = False
 player_died_game_over = False
@@ -252,6 +255,7 @@ class Player(Entity):
       'magic_bolt': 0, # Defaults to 120
       'fire_bolt': 0, # Defaults to 180
       'teletransport': 0, # Defaults to 300
+      'radial_blast': 0, # Defaults to 600
       'health_potion': 0, # Defaults to 300
       'mana_potion': 0 # Defaults to 300
     }
@@ -410,14 +414,18 @@ class Player(Entity):
   def cast_spell(self, name: str) -> None:
     if name == 'fire_bolt':
       self.spell_caster.cast_firebolt(spell_data=self.spells['fire_bolt'])
+
     elif name == 'teletransport':
       self.spell_caster.cast_teletransport(
         to=mouse_click_area,
         spell_data=self.spells['teletransport']
       )
-    elif name == 'magic_bolt':
-      self.spell_caster.cast_magicbolt(spell_data=self.spells['magic_bolt'])
 
+    elif name == 'magic_bolt':
+      self.spell_caster.cast_magicbolt(spell_data=self.spells[name])
+
+    elif name == 'radial_blast':
+      self.spell_to_be_cast = self.spell_caster.cast_radial_blast(spell_data=self.spells[name])
 
   def regenerate(self, type: str) -> None:
     if type == 'hp':
@@ -540,6 +548,13 @@ class Player(Entity):
       # If there are projectiles to load, render and handle them
       self.handle_projectiles(display, self.projectiles)
 
+      if isinstance(player.spell_to_be_cast, RadialBlast):
+        self.handle_radial_blast(
+          entity=self, 
+          radial_blast=self.spell_to_be_cast,
+          enemies_list=enemies_list
+        )
+
       if self.alive:
         if self.target:
           self.check_distance_from_enemy()
@@ -639,7 +654,7 @@ for x in range(16):
 
     map_data.append(tile_data)
 
-player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data, intelligence=200)
+player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data)
 
 
 
@@ -1014,7 +1029,7 @@ while True:
         spells = utils.get_merlins_spells_library()
         # Show the reading spell panel
 
-        if player.level == 2:
+        if player.level == 3:
           overlay_elements['panel'].show()
 
           pause_game(show_pause_menu=False) # Pauses the game
@@ -1029,7 +1044,7 @@ while True:
           # Load the earned spell screen
           player.populate_earned_spell_screen(spells['firestorm'])
 
-        elif player.level == 3:
+        elif player.level == 2:
           overlay_elements['panel'].show()
 
           pause_game(show_pause_menu=False) # Pauses the game
@@ -1082,6 +1097,9 @@ while True:
         sound_manager.play_bleep_sound(play=0)
 
       if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_F1:
+          shake_screen = True
+
         if event.key == pygame.K_ESCAPE and player.alive:
           pause_game(show_pause_menu=False if reading_earned_spell else True)
           
@@ -1114,22 +1132,28 @@ while True:
 
         if event.key == pygame.K_2:
           if 'teletransport' in player.learned_spells:
-            gui_elements['keys']['2'].select() # Run click animation
-            gui_elements['portraits']['teletransport'].select() # Run click animation
-            tp_cost = player.spells['teletransport']['cost']
 
-            # Telling the program to execute the teletransport 
-            # spell when player.spell_cast() is called
-            player.spell_to_be_cast = 'teletransport'
+            # Prevents cast collision
+            if player.spell_to_be_cast is None:
+              gui_elements['keys']['2'].select() # Run click animation
+              gui_elements['portraits']['teletransport'].select() # Run click animation
+              tp_cost = player.spells['teletransport']['cost']
 
-            # Switching the cursor image to target
-            player.cursor_state = 'target'
+              # Telling the program to execute the teletransport 
+              # spell when player.spell_cast() is called
+              player.spell_to_be_cast = 'teletransport'
+
+              # Switching the cursor image to target
+              player.cursor_state = 'target'
 
         if event.key == pygame.K_3:
           if 'radial_blast' in player.learned_spells:
-            player.cast_spell('radial_blast')
-            gui_elements['keys']['3'].select() # Run click animation
-            gui_elements['portraits']['radial_blast'].select() # Run click animation
+
+            # Prevents cast collision
+            if player.spell_to_be_cast is None:
+              player.cast_spell('radial_blast')
+              gui_elements['keys']['3'].select() # Run click animation
+              gui_elements['portraits']['radial_blast'].select() # Run click animation
 
         if event.key == pygame.K_4:
           if 'firestorm' in player.learned_spells:
@@ -1138,6 +1162,9 @@ while True:
             gui_elements['portraits']['firestorm'].select() # Run click animation
 
       if event.type == pygame.KEYUP:
+          if event.key == pygame.K_F1:
+            shake_screen = False
+
           if event.key == pygame.K_1:
             if 'fire_bolt' in player.learned_spells:
               gui_elements['keys']['1'].unselect() # Run click animation
@@ -1208,7 +1235,7 @@ while True:
             sound_manager.sounds['click_1_sound'].play()
 
             # It can be any target spell chosen from the spell panel
-            if (player.spell_to_be_cast):
+            if player.spell_to_be_cast == 'teletransport':
               player.cast_spell(name=player.spell_to_be_cast)
               player.spell_to_be_cast = None
 
@@ -1369,8 +1396,16 @@ while True:
 
   # Mouse is above all graphical layers
   display.blit(mouse_img, mouse_rect)
-  # Make display 2x bigger
-  screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0,0))
+  
+  shake_y = random.randint(WINDOW_SIZE[1] - 4, WINDOW_SIZE[1] + 4)
+  shake_x = random.randint(WINDOW_SIZE[0] - 4, WINDOW_SIZE[0] + 4)
+  
+  if shake_screen:
+    # Make display 2x bigger
+    screen.blit(pygame.transform.scale(display, (shake_x, shake_y)), (0,0))
+  else:
+    # Make display 2x bigger
+    screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0,0))
 
   # c = pygame.
 

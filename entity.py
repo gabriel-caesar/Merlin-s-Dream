@@ -1,7 +1,6 @@
 from __future__ import annotations
 import pygame
 import utils
-import random
 from events.damage_bubble import DamageBubble
 
 from typing import TYPE_CHECKING
@@ -9,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
   from projectile import Projectile
   from sound_manager import SoundManager
+  from projectile import RadialBlast
+  from enemy import Enemy
 
 class Entity(pygame.sprite.Sprite):
   def __init__(
@@ -122,3 +123,17 @@ class Entity(pygame.sprite.Sprite):
         kill = p.cast()
         if kill:
           projectiles.remove(p)
+
+  def handle_radial_blast(self, entity: Entity, radial_blast: RadialBlast, enemies_list: list[Enemy]) -> None:
+    
+    if radial_blast.stop == 0:
+      if radial_blast.firebolts and radial_blast.bolts_already_created:
+        radial_blast.stop = radial_blast.cast_to(enemies_list=enemies_list)
+
+      else:
+        radial_blast.create_firebolts()
+        radial_blast.bolts_already_created = True
+      
+    else:
+      # Radial blast stops being cast
+      entity.spell_to_be_cast = None

@@ -257,7 +257,7 @@ def load_gui(
 
   radial_blast_cd_timer = cd_font.render('10', True, '#f2bd29')
   radial_blast_cd_timer_rect = radial_blast_cd_timer.get_rect(center =(
-    radial_blast_portrait.rect.center[0],
+    radial_blast_portrait.rect.center[0] + 5,
     radial_blast_portrait.rect.center[1],
   ))
 
@@ -517,6 +517,15 @@ def load_gui(
     mana_potion.rect.center[0],
     mana_potion.rect.center[1],
   ))
+
+  # ======== COOLDOWN, ATTACK RANGE AND MANA WARNINGS ========
+  
+  mana_or_cooldown_warning = pygame_gui.elements.UITextBox(
+    html_text="<font color='#FF0000'>Not enough mana</font>",
+    manager=gui_manager,
+    relative_rect=(540,60,80,30),
+    object_id=ObjectID(object_id='#mana_or_cd_warning'),
+  )
 
   gui_elements = {
     'char_info_button': char_info_button,

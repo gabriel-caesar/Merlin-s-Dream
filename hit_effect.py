@@ -6,12 +6,12 @@ import utils
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-  from main import Player
+  from entity import Entity
   from enemy import Enemy
 
 class HitEffect():
   """Graphical animation for meele and ranged attacks"""
-  def __init__(self, target: Player | Enemy, type: str):
+  def __init__(self, target: Entity | Enemy, type: str):
 
     if type == 'slash':
       slash_imgs = utils.get_sprites(['effects', 'slash_effect'], 'meele_slash')

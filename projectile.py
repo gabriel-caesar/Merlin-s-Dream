@@ -1,10 +1,12 @@
 from __future__ import annotations
 import pygame
+import random
 from typing import TYPE_CHECKING
 from hit_effect import HitEffect
 if TYPE_CHECKING:
   from entity import Entity
   from sound_manager import SoundManager
+  from enemy import Enemy
 
 MAGIC_BOLT_COLOR = "#daf0ff"
 ARROW_COLOR = "#8EA7AE"
@@ -30,9 +32,11 @@ class Projectile():
     sound_manager: SoundManager,
     display: pygame.Surface,
     is_enemy: bool = False,
-    has_particles: bool = False
+    has_particles: bool = False,
+    absolute_direction: str | None = None,
   ):
     
+    self.absolute_direction = absolute_direction
     self.sound_manager = sound_manager
     self.caster = caster
     self.name = name
@@ -42,7 +46,7 @@ class Projectile():
       self.rect = pygame.Rect(origin[0], origin[1], 4, 4) 
       self.speed = 6
 
-    if name == 'fire_bolt':
+    if name == 'fire_bolt' or name == 'radial_blast':
       self.color = FIRE_BOLT_COLOR
       self.bb_color = ENEMY_BB_COLOR
       self.rect = pygame.Rect(origin[0], origin[1], 6, 6) 
@@ -64,7 +68,8 @@ class Projectile():
     self.particles = [Particle(pygame.Rect(0,0,0,0), self.rect.center)] if has_particles else []
     self.create_particle_by = 5 
 
-    self.direction = pygame.math.Vector2(self.target.rect.center) - pygame.math.Vector2(self.rect.center)
+    if name != 'radial_blast':
+      self.direction = pygame.math.Vector2(self.target.rect.center) - pygame.math.Vector2(self.rect.center)
 
   def project_particles(self) -> None:
 
@@ -84,11 +89,16 @@ class Projectile():
       self.particles.append(particle)
       self.create_particle_by = 5
 
-
   def run_particles(self) -> None:
     for p in self.particles:
-      p.pos[0] += self.direction.x * p.speed
-      p.pos[1] += self.direction.y * p.speed
+
+      if not self.absolute_direction: # Regular bolt
+        p.pos[0] += self.direction.x * p.speed
+        p.pos[1] += self.direction.y * p.speed
+
+      else: # Radial blast bolts
+        p.pos[0] += p.speed
+        p.pos[1] += p.speed
 
       p.rect.center = (int(p.pos[0]), int(p.pos[1]))
       pygame.draw.rect(self.display, self.color, p.rect)
@@ -140,3 +150,123 @@ class Projectile():
       return 1
         
     return 0
+
+
+class RadialBlast():
+  def __init__(
+      self, 
+      entity: Entity,
+      origin: list, 
+      sound_manager: SoundManager,
+      display: pygame.Surface,
+  ):
+    self.origin = origin
+    self.sound_manager=sound_manager
+    self.display=display
+    self.entity = entity
+    self.directions = ['s','n','e','w','ne','nw','sw','se']
+    self.firebolts: list[Projectile] = []
+    self.bolts_already_created = False
+    self.stop = 0
+    self.bolts_timer = 120
+
+
+  def create_firebolts(self) -> None:
+    # Create a firebolt for each direction
+    for dir in self.directions:
+      developer_boost = 30 # =D
+      base_firebolt_dmg = self.entity.intelligence + (self.entity.level * 6) + developer_boost
+      firebolt_dmg = random.randint(base_firebolt_dmg - 10, base_firebolt_dmg + 10)
+
+      firebolt = Projectile(
+        caster=self.entity,
+        name='radial_blast',
+        origin=self.origin,
+        dmg_value=firebolt_dmg,
+        target={},
+        sound_manager=self.sound_manager,
+        display=self.display,
+        absolute_direction=dir,
+        has_particles=True
+      )
+      self.firebolts.append(firebolt)
+
+  # Name cast_to comes from the idea 'cast to north, cast to east...'
+  def cast_to(self, enemies_list: list[Enemy]) -> int:
+
+    if self.bolts_timer > 0:
+      self.bolts_timer -= 1
+    else:
+      self.firebolts.clear()
+
+    if self.firebolts:
+      for bolt in self.firebolts:
+
+        # Flame particles
+        if bolt.particles:
+          bolt.run_particles()
+          bolt.project_particles()
+
+        # Checking collision with an enemy
+        for e in enemies_list:
+          if e.rect.colliderect(bolt.rect) and e.alive:
+            self.firebolts.remove(bolt)
+            e.take_damage(
+              dmg=bolt.dmg, 
+              is_enemy=bolt.is_enemy, 
+              bb_color=bolt.bb_color,
+              sound_manager=bolt.sound_manager
+            )
+            e.calculate_current_bar_width(type='hp')
+
+            # Populate the hit effect list:
+            hit_effect = HitEffect(target=e, type='fire_bolt')
+            self.entity.hit_effects_list.append(hit_effect)
+
+            # Play fire bolt sound
+            bolt.sound_manager.sounds['fire_bolt']['impact'].play()
+
+        match bolt.absolute_direction:
+          case 'n':
+            bolt.pos[0] = self.entity.rect.center[0]
+            bolt.pos[1] -= bolt.speed
+
+          case 's':
+            bolt.pos[0] = self.entity.rect.center[0]
+            bolt.pos[1] += bolt.speed
+
+          case 'w':
+            bolt.pos[0] -= bolt.speed
+            bolt.pos[1] = self.entity.rect.center[1]
+          
+          case 'e':
+            bolt.pos[0] += bolt.speed
+            bolt.pos[1] = self.entity.rect.center[1]
+
+          case 'ne':
+            bolt.pos[0] += bolt.speed
+            bolt.pos[1] -= bolt.speed
+
+          case 'nw':
+            bolt.pos[0] -= bolt.speed
+            bolt.pos[1] -= bolt.speed
+
+          case 'sw':
+            bolt.pos[0] -= bolt.speed
+            bolt.pos[1] += bolt.speed
+
+          case 'se':
+            bolt.pos[0] += bolt.speed
+            bolt.pos[1] += bolt.speed
+
+
+        bolt.rect.center = (int(bolt.pos[0]), int(bolt.pos[1]))
+        pygame.draw.rect(
+          surface=bolt.display, 
+          color=FIRE_BOLT_COLOR, 
+          rect=bolt.rect
+        )
+
+      return 0
+    else:
+      return 1

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import pygame
 from typing import TYPE_CHECKING
-from projectile import Projectile
+from projectile import Projectile, RadialBlast
 from hit_effect import HitEffect
 
 if TYPE_CHECKING:
   from entity import Entity
   from sound_manager import SoundManager
+  from enemy import Enemy
 
 class SpellCaster():
   def __init__(self, entity: Entity, display: pygame.Surface, sound_manager: SoundManager):
@@ -86,8 +87,31 @@ class SpellCaster():
       self.entity.use_mana(mana_cost)
       self.entity.active_cooldowns['teletransport'] = spell_cooldown
 
-  def cast_radial_blast(self) -> None:
-    pass
+  def cast_radial_blast(self, spell_data: dict) -> RadialBlast | None:
+    mana_cost = spell_data['cost']
+    spell_cooldown = spell_data['cooldown'] # Cooldown to be set
+
+    if self.entity.mana >= mana_cost and self.entity.active_cooldowns['radial_blast'] <= 0:
+
+      radial_blast = RadialBlast(
+        entity=self.entity,
+        origin=(
+          self.entity.rect.center[0] + 2,
+          self.entity.rect.center[1] - 5,
+        ),
+        sound_manager=self.sound_manager,
+        display=self.display
+      )
+
+      # Using mana
+      self.entity.use_mana(mana_cost)
+
+      # Setting the radial blast cooldown
+      self.entity.active_cooldowns['radial_blast'] = spell_cooldown
+      
+      return radial_blast
+    
+    return None
 
   def cast_firestorm(self) -> None:
     pass
