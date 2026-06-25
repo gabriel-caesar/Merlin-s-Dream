@@ -28,7 +28,7 @@ class HitEffect():
       effect_list = list(magic_bolt_effect.values())
       self.animation_frames = effect_list
 
-    elif type == 'fire_bolt':
+    elif type == 'fire_bolt' or type == 'firestorm':
       magic_bolt_effect = utils.get_sprites(['effects', 'fire_bolt_effect'], 'effect')
       effect_list = list(magic_bolt_effect.values())
       self.animation_frames = effect_list
@@ -43,6 +43,8 @@ class HitEffect():
 
     if type == 'teletransport':
       target_pos = (target.center[0], target.center[1] - 5)
+    elif type == 'firestorm':
+      target_pos = (target[0], target[1])
     else:
       target_pos = target.rect.center
 

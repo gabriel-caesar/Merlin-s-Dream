@@ -25,6 +25,7 @@ in_main_menu = True
 game_paused = False
 in_transition = False
 shake_screen = False
+shake_duration = 0
 info_screen_page = 1
 play_text_bleep = False
 player_died_game_over = False
@@ -39,6 +40,7 @@ WAVE_CHANGED = pygame.USEREVENT + 8 # Fires when waves advance
 FADE_IN = pygame.USEREVENT + 9
 FADE_OUT = pygame.USEREVENT + 10
 LEVEL_UP = pygame.USEREVENT + 11
+SCREEN_SHAKE_EVENT = pygame.USEREVENT + 12
 
 # Sound manager
 sound_manager = SoundManager()
@@ -60,6 +62,8 @@ game_over_manager = utils.create_ui_manager(DISPLAY_SIZE)
 gui_manager = utils.create_ui_manager(DISPLAY_SIZE)
 overlay_manager = utils.create_ui_manager(DISPLAY_SIZE)
 reading_earned_spell = False
+get_all_skills = False
+warnings: list[Warning] = []
 
 # Main grass tiles
 grass_block = pygame.image.load('./grass.png')
@@ -70,6 +74,8 @@ idle_spritesheet = utils.get_sprites(['player'], 'idle')
 running_spritesheet = utils.get_sprites(['player'], 'walk')
 backview_running_spritesheet = utils.get_sprites(['player', 'backview'], 'backview_walk')
 backview_idle_spritesheet = utils.get_sprites(['player', 'backview'], 'backview_idle')
+casting_spritesheet = utils.get_sprites(['player', 'casting'], 'cast')
+backview_casting_spritesheet = utils.get_sprites(['player', 'casting', 'backview'], 'cast')
 
 def load_fresh_game(
   map_data: list,
@@ -93,8 +99,7 @@ def load_fresh_game(
     map_data=map_data, 
     n=random.randint(3, 6), 
     enemy_group=enemiesgroup, 
-    enemy_name='orc',
-    atk_range=20,
+    enemy_name='shadow_caster',
     display=display,
     sound_manager=sound_manager
   )
@@ -166,6 +171,15 @@ def control_volume_sliders() -> None:
       pause_music_slider.set_current_value(music_val_1)
       pygame.mixer.music.set_volume(round(music_val_1 / 100, ndigits=2))
 
+def control_screen_shake():
+  global shake_screen
+  global shake_duration
+  if shake_screen:
+    if shake_duration > 0:
+      shake_duration -= 1
+    else:
+      shake_screen = False
+
 class Player(Entity):
   def __init__(
     self, 
@@ -205,14 +219,14 @@ class Player(Entity):
     self.spell_to_be_cast = None # Identifies what spell should be cast 
     self.cursor_state = 'normal' # Helps identify if the user is using a target-spell
     self.spell_caster = SpellCaster(entity=self, display=display, sound_manager=sound_manager)
-    self.distance_from_enemy = 0
     self.atk_range = 90
     self.projectiles = []
     self.speed = 0.8
     self.regen_hp_timer = 300
     self.regen_mana_timer = 240
     self.kills = 0
-    self.being_targeted_by = [] # Helps with passive regeneration
+    self.being_targeted_by = [] # Helps with passive regeneration 
+    self.casting_firestorm = False
 
     # Potions
     self.potions = {
@@ -229,12 +243,12 @@ class Player(Entity):
       'magic_bolt': {
         'cooldown': 120, # Placeholder cooldown value
         'cost': 16,
-        'dmg': random.randint(self.intelligence - 3, self.intelligence + 3)
+        # Damage is calulated in the cast_magicbolt() function
       },
       'fire_bolt': {
         'cooldown': 180, # Placeholder cooldown value
         'cost': 30,
-        'dmg': 80
+        # Damage is calculated in the cast_firebolt() function
       },
       'teletransport': {
         'cooldown': 300, # Placeholder cooldown value
@@ -243,10 +257,12 @@ class Player(Entity):
       'radial_blast': {
         'cooldown': 600,
         'cost': 200
+        # Damage is calculated in the cast_firebolt() function
       },
       'firestorm': {
-        'cooldown': 1200,
-        'cost': 500
+        'cooldown': 120,
+        'cost': 20, # 500
+        # Damage is calculated in the cast_firestorm() function
       }
     }
 
@@ -256,6 +272,7 @@ class Player(Entity):
       'fire_bolt': 0, # Defaults to 180
       'teletransport': 0, # Defaults to 300
       'radial_blast': 0, # Defaults to 600
+      'firestorm': 0, # Defaults to 1200
       'health_potion': 0, # Defaults to 300
       'mana_potion': 0 # Defaults to 300
     }
@@ -384,7 +401,14 @@ class Player(Entity):
         self.disabled_spells.remove(spell)
     
   def run_animation(self, display: pygame.Surface) -> None:
-    if self.destination_tile:
+    # ========= DECIDING WHAT ANIMATION RUNS =========
+    
+    if self.casting_firestorm:
+      self.animation_frames = list(casting_spritesheet.values())
+      if self.facing == 'backview':
+        self.animation_frames = list(backview_casting_spritesheet.values())
+
+    elif self.destination_tile:
       if self.facing == 'backview':
         self.animation_frames = list(backview_running_spritesheet.values())
 
@@ -397,11 +421,14 @@ class Player(Entity):
       else:
         self.animation_frames = list(idle_spritesheet.values())
 
+    # ========= ENGINE THAT RUNS THE ANIMATION INDEX =========
+
     self.animation_index += 0.1
     if self.animation_index > len(self.animation_frames):
       self.animation_index = 0
 
     # ================ RENDERING THE CORRECT IMAGE IF THE PLAYER IS DEAD OR ALIVE ================
+
     if self.alive:
       self.image = self.animation_frames[int(self.animation_index)]
     else:
@@ -421,11 +448,24 @@ class Player(Entity):
         spell_data=self.spells['teletransport']
       )
 
+    elif name == 'firestorm':
+      # Will firstly check if firestorm is not on cooldown
+      # and if Merlin has enough mana to cast it
+      self.casting_firestorm = self.spell_caster.check_if_firestorm_is_available(
+        spell_data=self.spells['firestorm']
+      )
+      # Later, if casting_firestorm becomes true, cast_firestorm()
+      # will be called in the update function
+
+      # Helps Merlin lock into the casting animation
+      self.spell_caster.firestorm_casting_timer = 180
+
     elif name == 'magic_bolt':
       self.spell_caster.cast_magicbolt(spell_data=self.spells[name])
 
     elif name == 'radial_blast':
       self.spell_to_be_cast = self.spell_caster.cast_radial_blast(spell_data=self.spells[name])
+
 
   def regenerate(self, type: str) -> None:
     if type == 'hp':
@@ -496,6 +536,26 @@ class Player(Entity):
     )
     gui_elements['portraits'][spell['name']].show() # Reveal spell portrait
 
+  def activate_all_spells(self) -> None:
+    if len(self.learned_spells) < 4:
+      # Turning global variable to get all skills to true.
+      # This makes so when leveling up, the program doesn't
+      # force Merlin to learn spells anymore.
+      global get_all_skills
+      get_all_skills = True
+
+      self.learned_spells = [
+        'fire_bolt',
+        'radial_blast',
+        'teletransport',
+        'firestorm'
+      ]
+      for spell in self.learned_spells:
+        gui_elements['portraits'][spell].show() # Reveal spell portrait
+
+      sound_manager.sounds['activate_all_spells'].play()
+      
+
   def update_stats_upon_lvlup(self) -> None:
     # Update backend values
     self.level += 1
@@ -535,18 +595,20 @@ class Player(Entity):
         self.xp += amount
         return 0
 
-  def check_distance_from_enemy(self):
-    # Finding the Euclidean distance between player and enemy
-    dt_x = player.rect.x - player.target[1].rect.x
-    dt_y = player.rect.y - player.target[1].rect.y
-    player.distance_from_enemy = math.sqrt((dt_x) ** 2 + (dt_y) ** 2)
-
   def update(self, display: pygame.Surface, game_paused: bool) -> None:
     if not game_paused:
       self.run_animation(display)
 
       # If there are projectiles to load, render and handle them
       self.handle_projectiles(display, self.projectiles)
+
+      # Handling warnings such as when Merlin is out of mana
+      if warnings:
+        for w in warnings:
+          kill = w.update()
+
+          if kill:
+            warnings.remove(w)
 
       if isinstance(player.spell_to_be_cast, RadialBlast):
         self.handle_radial_blast(
@@ -556,9 +618,16 @@ class Player(Entity):
         )
 
       if self.alive:
+        self.distance_from_enemy = self.check_distance_from_enemy(enemy=self.target[1] if self.target else None)
+        self.auto_attack()
+
+        if self.casting_firestorm:
+          self.spell_caster.cast_firestorm(
+            to=mouse_click_area,
+            enemies_list=enemies_list
+          )
+        
         if self.target:
-          self.check_distance_from_enemy()
-          self.auto_attack()
           t = self.target[1].rect
           display.blit(target_indicator_img, (t.x - 5, t.y + 11))
 
@@ -654,7 +723,7 @@ for x in range(16):
 
     map_data.append(tile_data)
 
-player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data)
+player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data, intelligence=30)
 
 
 
@@ -694,6 +763,27 @@ wave_manager = WaveManager(
   screen_veil=screen_veil,
   sound_manager=sound_manager
 )
+
+def update_game_on_lvl_up(
+  player: Player, 
+  overlay_elements: dict, 
+  spells: dict, 
+  spell_learned: str
+):
+  overlay_elements['panel'].show()
+
+  pause_game(show_pause_menu=False) # Pauses the game
+
+  # Prevents faulty pause menu behaviors when reading the new spell
+  global reading_earned_spell
+  reading_earned_spell = True 
+  sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
+
+  # Learn the new spell on the backend
+  player.learned_spells.append(spell_learned)
+
+  # Load the earned spell screen
+  player.populate_earned_spell_screen(spells[spell_learned])
     
 while True:
   dt = clock.tick(60) / 1000
@@ -704,6 +794,9 @@ while True:
   display.fill("#080025")
 
   control_volume_sliders()
+
+  # Screen shake based on spell impacts
+  control_screen_shake()
   
   if in_main_menu:
     # Loads the main menu screen and returns a boolean value to 
@@ -980,10 +1073,21 @@ while True:
 
     # ================ KEYBOARD EVENT LOOP ================
 
+    key = pygame.key.get_pressed()
+
+    # Kill player (test)
+    if key[pygame.K_LSHIFT] and key[pygame.K_F12]:
+      player.activate_all_spells()
+
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         pygame.quit()
         sys.exit()
+
+      if event.type == SCREEN_SHAKE_EVENT:
+        # Enables screen shake and main loop deals with it
+        shake_screen = True
+        shake_dureation = event.duration
 
       if event.type == PLAYER_DIED:
         game_over_elements['main_panel'].show()
@@ -1029,66 +1133,42 @@ while True:
         spells = utils.get_merlins_spells_library()
         # Show the reading spell panel
 
-        if player.level == 3:
-          overlay_elements['panel'].show()
+        # Making sure the game is not set for Merlin to start
+        # with all skills he can learn
+        if not get_all_skills:
 
-          pause_game(show_pause_menu=False) # Pauses the game
+          if player.level == 3:
+            update_game_on_lvl_up(
+              player=player,
+              overlay_elements=overlay_elements,
+              spells=spells,
+              spell_learned='firestorm'
+            )
 
-          # Prevents faulty pause menu behaviors when reading the new spell
-          reading_earned_spell = True 
-          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
-
-          # Learn the new spell on the backend
-          player.learned_spells.append('firestorm')
-
-          # Load the earned spell screen
-          player.populate_earned_spell_screen(spells['firestorm'])
-
-        elif player.level == 2:
-          overlay_elements['panel'].show()
-
-          pause_game(show_pause_menu=False) # Pauses the game
-
-          # Prevents faulty pause menu behaviors when reading the new spell
-          reading_earned_spell = True 
-          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
-
-          # Learn the new spell on the backend
-          player.learned_spells.append('radial_blast')
-
-          # Load the earned spell screen
-          player.populate_earned_spell_screen(spells['radial_blast'])
+          elif player.level == 2:
+            update_game_on_lvl_up(
+              player=player,
+              overlay_elements=overlay_elements,
+              spells=spells,
+              spell_learned='radial_blast'
+            )
 
 
-        elif player.level == 4:
-          overlay_elements['panel'].show()
+          elif player.level == 4:
+            update_game_on_lvl_up(
+              player=player,
+              overlay_elements=overlay_elements,
+              spells=spells,
+              spell_learned='fire_bolt'
+            )
 
-          pause_game(show_pause_menu=False) # Pauses the game
-
-          # Prevents faulty pause menu behaviors when reading the new spell
-          reading_earned_spell = True 
-          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
-
-          # Learn the new spell on the backend
-          player.learned_spells.append('fire_bolt')
-
-          # Load the earned spell screen
-          player.populate_earned_spell_screen(spells['fire_bolt'])
-
-        elif player.level == 5:
-          overlay_elements['panel'].show()
-
-          pause_game(show_pause_menu=False) # Pauses the game
-
-          # Prevents faulty pause menu behaviors when reading the new spell
-          reading_earned_spell = True 
-          sound_manager.sounds['text_bleep'][str(bleep_index)].play(-1)
-
-          # Learn the new spell on the backend 
-          player.learned_spells.append('teletransport')
-
-          # Load the earned spell screen
-          player.populate_earned_spell_screen(spells['teletransport'])
+          elif player.level == 5:
+            update_game_on_lvl_up(
+              player=player,
+              overlay_elements=overlay_elements,
+              spells=spells,
+              spell_learned='teletransport'
+            )
 
         
 
@@ -1157,9 +1237,18 @@ while True:
 
         if event.key == pygame.K_4:
           if 'firestorm' in player.learned_spells:
-            player.cast_spell('firestorm')
-            gui_elements['keys']['4'].select() # Run click animation
-            gui_elements['portraits']['firestorm'].select() # Run click animation
+
+            # Prevents cast collision
+            if player.spell_to_be_cast is None:
+              gui_elements['keys']['4'].select() # Run click animation
+              gui_elements['portraits']['firestorm'].select() # Run click animation
+
+              # Telling the program to execute the firestorm 
+              # spell when player.spell_cast() is called
+              player.spell_to_be_cast = 'firestorm'
+
+              # Switching the cursor image to target
+              player.cursor_state = 'target'
 
       if event.type == pygame.KEYUP:
           if event.key == pygame.K_F1:
@@ -1199,6 +1288,9 @@ while True:
   
           # Checking if the tile clicked was a target to attack
           if event.button == 3:
+
+            # Clearing any target-based spell if any
+            player.spell_to_be_cast = None
             
             # If the player is trying to move while with the
             # target cursor, change it
@@ -1234,8 +1326,11 @@ while True:
             # Play clicking sound
             sound_manager.sounds['click_1_sound'].play()
 
-            # It can be any target spell chosen from the spell panel
-            if player.spell_to_be_cast == 'teletransport':
+            # Handling spells target-based
+            if (
+              player.spell_to_be_cast == 'teletransport' or
+              player.spell_to_be_cast == 'firestorm'
+            ):
               player.cast_spell(name=player.spell_to_be_cast)
               player.spell_to_be_cast = None
 
@@ -1331,6 +1426,7 @@ while True:
     # Triggers the vanish_timer inside player.update()
     if player_died_game_over and player.alive:
       player.alive = False # Avoids re-loop
+      sound_manager.sounds['merlin_death'].play()
 
 
     # =================== LAYERING ===================

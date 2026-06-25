@@ -55,6 +55,7 @@ def load_gui(
   wave_panel = pygame_gui.elements.UIPanel(
     relative_rect=(540,10,80,30),
     manager=gui_manager,
+    object_id=ObjectID(object_id='#wave_panel')
   )
 
   wave_label = pygame_gui.elements.UILabel(
@@ -299,7 +300,7 @@ def load_gui(
 
   firestorm_cd_timer = cd_font.render('20', True, '#f2bd29')
   firestorm_cd_timer_rect = firestorm_cd_timer.get_rect(center =(
-    firestorm_portrait.rect.center[0],
+    firestorm_portrait.rect.center[0] + 5,
     firestorm_portrait.rect.center[1],
   ))
 
@@ -519,13 +520,62 @@ def load_gui(
   ))
 
   # ======== COOLDOWN, ATTACK RANGE AND MANA WARNINGS ========
-  
-  mana_or_cooldown_warning = pygame_gui.elements.UITextBox(
-    html_text="<font color='#FF0000'>Not enough mana</font>",
+
+  warning_panel = pygame_gui.elements.UIPanel(
+    relative_rect=(500, 60, 150, 300),
     manager=gui_manager,
-    relative_rect=(540,60,80,30),
-    object_id=ObjectID(object_id='#mana_or_cd_warning'),
+    visible=1,
+    object_id=ObjectID(object_id='#warning_panel')
   )
+
+  warning_1_title = pygame_gui.elements.UIButton(
+    text='WARNING',
+    manager=gui_manager,
+    relative_rect=(0,5,92,30),
+    object_id=ObjectID(class_id='@warning_titles'),
+    container=warning_panel,
+    anchors={
+      'centerx':'centerx'
+    },
+    visible=0
+  )
+  
+  warning_1 = pygame_gui.elements.UITextBox(
+    html_text="<font color='#FF0000'>OUT OF MANA</font>",
+    manager=gui_manager,
+    relative_rect=(0,28,110,30),
+    object_id=ObjectID(class_id='@warnings'),
+    container=warning_panel,
+    anchors={
+      'centerx':'centerx'
+    },
+    visible=0
+  )
+
+  warning_2_title = pygame_gui.elements.UIButton(
+    text='WARNING',
+    manager=gui_manager,
+    relative_rect=(0,80,92,30),
+    object_id=ObjectID(class_id='@warning_titles'),
+    container=warning_panel,
+    anchors={
+      'centerx':'centerx'
+    },
+    visible=0
+  )
+  
+  warning_2 = pygame_gui.elements.UITextBox(
+    html_text="<font color='#FF0000'>OUT OF RANGE</font>",
+    manager=gui_manager,
+    relative_rect=(0,103,110,30),
+    object_id=ObjectID(class_id='@warnings'),
+    container=warning_panel,
+    anchors={
+      'centerx':'centerx'
+    },
+    visible=0
+  )
+
 
   gui_elements = {
     'char_info_button': char_info_button,
@@ -534,6 +584,19 @@ def load_gui(
     'player_mana_label': player_mana_label,
     'spell_panel': spell_panel,
     'settings_button': settings_button,
+
+    'warnings': {
+      "main_panel": warning_panel,
+      '1': {
+        "title": warning_1_title,
+        "text": warning_1
+      },
+      '2': {
+        "title": warning_2_title,
+        "text": warning_2
+      }
+    },
+
     'portraits': {
       'magic_bolt': magic_bolt_portrait,
       'fire_bolt': fire_bolt_portrait,
@@ -543,6 +606,7 @@ def load_gui(
       'radial_blast': radial_blast_portrait,
       'firestorm': firestorm_portrait
     },
+
     'keys': {
       '1': fire_bolt_key,
       '2': tp_key,
@@ -551,6 +615,7 @@ def load_gui(
       'Q': hp_potion_key,
       'E': mana_potion_key
     },
+
     'char_info': {
       'level': char_level_label,
       'str': char_str_label,
@@ -559,6 +624,7 @@ def load_gui(
       'xp': char_xp_label,
       'kills': char_kill_count_label
     },
+
     'spells_info': {
       'magic_bolt': magic_bolt_info,
       'fire_bolt': fire_bolt_info,
@@ -566,6 +632,7 @@ def load_gui(
       'radial_blast': radial_blast_info,
       'firestorm': firestorm_info
     },
+
     'cooldown_text': {
       'teletransport': tp_cd_text,
       'fire_bolt': fire_bolt_cd_text,
@@ -573,6 +640,7 @@ def load_gui(
       'radial_blast': radial_blast_cd_text,
       'firestorm': firestorm_cd_text
     },
+
     'cooldown_timer': {
       'teletransport': tp_cd_timer_rect,
       'fire_bolt': firebolt_cd_timer_rect,
@@ -582,6 +650,7 @@ def load_gui(
       'radial_blast': radial_blast_cd_timer_rect,
       'firestorm': firestorm_cd_timer_rect
     },
+
     'health_potion_count': hp_potion_count,
     'mana_potion_count': mana_potion_count,
     'health_potion_btn': health_potion,

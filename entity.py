@@ -1,5 +1,6 @@
 from __future__ import annotations
 import pygame
+import math
 import utils
 from events.damage_bubble import DamageBubble
 
@@ -43,6 +44,7 @@ class Entity(pygame.sprite.Sprite):
     self.alive = True
     self.hit_effects_list = []
     self.learned_spells = []
+    self.distance_from_enemy = 0
 
     self.level = level
     self.strength = strength + self.level * 3
@@ -54,6 +56,17 @@ class Entity(pygame.sprite.Sprite):
     self.mana = mana + self.level * 2 + self.intelligence
     self.xp = xp
     self.max_xp = max_xp
+
+  def check_distance_from_enemy(self, enemy: Entity) -> float | int:
+
+    if enemy:
+      # Finding the Euclidean distance between player and enemy
+      dt_x = self.rect.x - enemy.rect.x
+      dt_y = self.rect.y - enemy.rect.y
+      return math.sqrt((dt_x) ** 2 + (dt_y) ** 2)
+    
+    else:
+      return self.atk_range
 
   def move(self) -> None:
     destination = self.destination_tile['hover_area'].center

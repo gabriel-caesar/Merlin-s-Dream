@@ -6,6 +6,7 @@ class SoundManager():
       'button_click': None,
       'click_1_sound': None,
       'click_3_sound': None,
+      'activate_all_spells': None,
 
       'orc': {
         'swing': None,
@@ -13,6 +14,12 @@ class SoundManager():
       },
 
       'orc_death_sounds': {
+        '0': None,
+        '1': None,
+        '2': None,
+      },
+
+      'shadow_death_sounds': {
         '0': None,
         '1': None,
         '2': None,
@@ -26,6 +33,10 @@ class SoundManager():
 
       'fire_bolt': {
         'cast': None,
+        'impact': None
+      },
+
+      'shadow_bolt': {
         'impact': None
       },
 
@@ -46,10 +57,13 @@ class SoundManager():
     # ======= GAMEPLAY =======
     self.sounds['potion'] = pygame.mixer.Sound('./assets/sound/potion.wav')
     self.sounds['level_up'] = pygame.mixer.Sound('./assets/sound/levelup.wav')
+    self.sounds['merlin_death'] = pygame.mixer.Sound('./assets/sound/merlin_death.wav')
+    self.sounds['activate_all_spells'] = pygame.mixer.Sound('./assets/sound/activate_all_spells.flac')
 
     # ======= SPELLS =======
     self.sounds['fire_bolt']['cast'] = pygame.mixer.Sound('./assets/sound/spells/fire_bolt/cast.ogg')
     self.sounds['fire_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/fire_bolt/impact.ogg')
+    self.sounds['shadow_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/shadow_bolt/impact.ogg')
     self.sounds['magic_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/magic_bolt/impact.wav')
     self.sounds['teletransport']['cast'] = pygame.mixer.Sound('./assets/sound/spells/tp/cast.wav')
 
@@ -68,6 +82,10 @@ class SoundManager():
     # ======= DIFFERENT ORC DEATH SOUNDS =======
     for k,_ in self.sounds['orc_death_sounds'].items():
       self.sounds['orc_death_sounds'][k] = pygame.mixer.Sound(f'./assets/sound/enemies/orc/death{k}.mp3')
+
+    # ======= DIFFERENT SHADOW DEATH SOUNDS =======
+    for k,_ in self.sounds['shadow_death_sounds'].items():
+      self.sounds['shadow_death_sounds'][k] = pygame.mixer.Sound(f'./assets/sound/enemies/shadow/death{k}.wav')
 
 
   def set_global_sound_volume_to(self, volume: float) -> None:

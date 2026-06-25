@@ -12,7 +12,7 @@ if TYPE_CHECKING:
   from main import Player
   from sound_manager import SoundManager
 
-HPBAR_WIDTH = 110
+HPBAR_WIDTH = 145
 
 class Enemy(Entity):
   def __init__(
@@ -60,7 +60,6 @@ class Enemy(Entity):
     self.name = name
     self.patrol_timer = random.randint(90, 240)
     self.patrol_tile = self.on_tile # Never changes after arriving at the destination tile
-    self.aggro = False
     self.speed = 0.5
     self.chase_cooldown = 0
     self.xp_value = int(self.level + (wave * 50))
@@ -72,11 +71,18 @@ class Enemy(Entity):
     self.damage = random.randint(self.strength - 3, self.strength + 3)
     self.projectile_list = []
 
+    # ========== AGGRO RELATED LOGIC ==========
+    self.aggro = False
+    self.aggro_range = 60
+    self.aggro_pointer = pygame.image.load('./assets/ui/aggro_pointer.png')
+    self.aggro_pointer_rect = self.aggro_pointer.get_rect()
+    self.aggro_pointer_timer = 0
+
     # ========== HP BAR GUI ==========
     self.hp_bar_img = pygame.image.load('./assets/ui/enemy_hp_bar.png')
     self.hp_bar_rect = self.hp_bar_img.get_rect(center=(320, 20))
     self.hp_bar_filler = pygame.Rect(
-      self.hp_bar_rect.left + 15,
+      self.hp_bar_rect.left + 22,
       self.hp_bar_rect.top + 3,
       HPBAR_WIDTH,
       20
@@ -127,6 +133,22 @@ class Enemy(Entity):
       )
     )
 
+  def handle_aggro_pointer(self) -> None:
+    if self.aggro_pointer_timer > 0 and self.alive:
+      self.aggro_pointer_timer -= 1
+      
+      self.aggro_pointer_rect = self.aggro_pointer.get_rect(
+        midbottom = (
+          self.rect.midtop[0],
+          self.rect.midtop[1] - 5 # Slightly to the top of the enemy's head
+        )
+      )      
+
+      self.display.blit(
+        self.aggro_pointer,
+        self.aggro_pointer_rect
+      )
+
   def run_animation(self, is_boss: bool = False) -> None:
     if len(self.animation_frames) > 1:
 
@@ -148,14 +170,16 @@ class Enemy(Entity):
 
       # ============== IDLE ANIMATION ==============
       else:
-        if self.facing == 'backview':
-          self.animation_frames = self.backview_idle_spritesheet
-        else:
-          self.animation_frames = self.idle_spritesheet
+        # Making sure the attack animation doesn't get ran over by the idle one
+        if not self.attacking: 
+          if self.facing == 'backview':
+            self.animation_frames = self.backview_idle_spritesheet
+          else:
+            self.animation_frames = self.idle_spritesheet
 
       # ============== ANIMATION LOOP ==============
       self.animation_index += 0.1
-      if self.animation_index > len(self.animation_frames):
+      if self.animation_index >= len(self.animation_frames):
         self.animation_index = 0
         if self.attacking: # Finish the enemy attack animation at this point
           self.attacking = False
@@ -166,6 +190,7 @@ class Enemy(Entity):
     if is_boss: pygame.transform.scale2x(self.image)
 
   def patrol(self, map_data: list) -> None:
+
     if self.patrol_timer == 0:
       ix = self.patrol_tile['index'][0]
       iy = self.patrol_tile['index'][1]
@@ -265,17 +290,23 @@ class Enemy(Entity):
         self.sound_manager.sounds['orc']['swing'].play() # Play the weapon swing sound()
 
       elif type == 'ranged_hit':
+
         self.projectile = Projectile(
           caster=self,
-          name=type, # Attention: name='ranged_hit'
+          name='fire_bolt' if self.name == 'shadow caster' else type, # Attention: name='ranged_hit'
           origin=self.rect.center, 
           dmg_value=self.damage,
           target=player,
           display=self.display,
-          sound_manager=self.sound_manager
+          sound_manager=self.sound_manager,
+          has_particles=True if self.name == 'shadow caster' else False
         )
         self.projectile_list.append(self.projectile)
-        self.sound_manager.sounds['orc']['arrow'].play() # Play the shooting arrow sound
+
+        if self.name == 'shadow caster':
+          self.sound_manager.sounds['fire_bolt']['cast'].play()
+        else:
+          self.sound_manager.sounds['orc']['arrow'].play() # Play the shooting arrow sound
       
       self.attacking = True
       self.atk_cooldown = 120
@@ -301,7 +332,12 @@ class Enemy(Entity):
           if 'orc' in self.name:
             index = random.randint(0,2)
             self.sound_manager.sounds['orc_death_sounds'][str(index)].play()
+          elif 'shadow' in self.name:
+            index = random.randint(0,2)
+            self.sound_manager.sounds['shadow_death_sounds'][str(index)].play()
 
+
+          # Used for regeneration purposes
           if self in player.being_targeted_by:
             player.being_targeted_by.remove(self)
 
@@ -321,16 +357,25 @@ class Enemy(Entity):
           return
         
       else:
+
+        # Getting the distance between the enemy and the player for aggro
+        self.distance_from_enemy = self.check_distance_from_enemy(enemy=player)
+
         if self.destination_tile:
           self.move() 
 
         if not self.aggro:
           if self.patrol_timer > 0:
             self.patrol_timer -= 1
-          self.patrol(map_data)
+          self.patrol(map_data=map_data)
 
-          if self.hp < self.max_hp:
+          if (
+            self.hp < self.max_hp or # If enemy gets hit
+            self.distance_from_enemy <= self.aggro_range and
+            self.distance_from_enemy > 0 
+          ):
             self.aggro = True
+            self.aggro_pointer_timer = 180
 
         else:
           self.chase(player)
@@ -343,3 +388,4 @@ class Enemy(Entity):
 
 
     self.display.blit(self.image, self.rect)
+    self.handle_aggro_pointer() # Rendering the aggro pointer on top of the enemy's own image

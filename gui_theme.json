@@ -104,6 +104,58 @@
     }
   },
 
+  "@warning_titles":
+  {
+    "misc":
+    {
+      "shape": "rectangle"
+    },
+    "font":
+    {
+      "name": "avqest",
+      "size": 10
+    },
+    "images":
+    {
+      "normal_image":
+      {
+        "path":"./assets/ui/button_image.png"
+      }
+    }
+  },
+
+  "#warning_panel":
+  {
+    "colours": 
+    {
+      "dark_bg": "#00000000",
+      "normal_border": "#00000000"
+    }
+  },
+
+  "#wave_panel":
+  {
+    "colours":
+    {
+      "dark_bg": "#000000"
+    }
+  },
+
+  "@warnings":
+  {
+    "colours":
+    {
+      "dark_bg": "#000000",
+      "normal_text": "#000000"
+    },
+
+    "font":
+    {
+      "name": "avqest",
+      "size": "11"
+    }
+  },
+
   "@cooldown_text":
   {
     "colours":

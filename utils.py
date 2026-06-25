@@ -115,7 +115,6 @@ def add_n_enemies(
   n: int, 
   enemy_group: pygame.sprite.Group,
   enemy_name: str,
-  atk_range: int,
   display: pygame.Surface,
   sound_manager: SoundManager,
   wave: int = 1
@@ -133,13 +132,23 @@ def add_n_enemies(
       enemy_hp = random.randint(30,60) + (wave * 2)
       enemy_level = 1
 
+  # Making sure the attack range is set properly
+  if enemy_name == 'orc_archer' or enemy_name == 'shadow_archer':
+    enemy_atk_range = 90
+
+  elif enemy_name == 'shadow_caster':
+    enemy_atk_range = 210
+
+  else:
+    enemy_atk_range = 20
+
   for _ in range(n):
     enemy_group.add(
       Enemy(
         tile=map_data[random.randint(50, 255)], 
         name=enemy_name, 
         hp=enemy_hp,
-        atk_range=atk_range,
+        atk_range=enemy_atk_range,
         display=display,
         level=enemy_level,
         wave=wave,

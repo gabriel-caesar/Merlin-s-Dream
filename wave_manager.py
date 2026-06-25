@@ -25,7 +25,7 @@ class WaveManager():
     self.wave_display_timer = 120
     self.enemies_list = enemies_list
     self.map_data = map_data  
-    self.enemy_names = ['orc']
+    self.enemy_names = ['shadow']
     self.gui_elements = gui_elements
     self.pause_menu_elements = pause_menu_elements
     self.screen_veil = screen_veil
@@ -64,9 +64,10 @@ class WaveManager():
 
         # Updating what creatures will be spawned based on the wave length
         if self.current_wave == 2:
-          self.enemy_names.append('orc_archer')
+          self.enemy_names.append('shadow_archer')
         elif self.current_wave == 3:
-          self.enemy_names.append('orc_axe')
+          self.enemy_names.append('shadow_caster')
+          
 
         for name in self.enemy_names:
           self.enemies_list = utils.add_n_enemies(
@@ -75,7 +76,6 @@ class WaveManager():
             enemy_group=enemies_group,
             enemy_name=name,
             display=display,
-            atk_range=90 if name == 'orc_archer' else 20,
             wave=self.current_wave,
             sound_manager=self.sound_manager
           )
