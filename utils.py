@@ -14,6 +14,46 @@ if TYPE_CHECKING:
 # Manages events like damage bubbles in the main.py file
 event_manager = []
 
+def create_map(
+  texture_list: list,
+  HALF_TILE: int,
+  TILE_SURFACE_OFFSET: int
+) -> list:
+  map_data = []
+  default_tile = pygame.Rect(0,0,32,34)
+
+  for x in range(16):
+    for y in range(16):
+      tile_data = {}
+
+      tile_rect = default_tile.copy()
+      tile_rect.x = 320 + (x - y) * HALF_TILE # Grows left-down
+      tile_rect.y = 30 + (x + y) * TILE_SURFACE_OFFSET # Grows right-down
+
+      hover_area = pygame.Rect(0, 0, 13, 10)
+      hover_area.center = (
+        tile_rect.x + (tile_rect.width / 2), 
+        tile_rect.y + ((tile_rect.height / 2) - 9)
+      )
+
+      tile_data['tile'] = tile_rect
+      tile_data['hover_area'] = hover_area
+      tile_data['index'] = [x, y]
+      if random.randint(0, 1) == 0:
+          tile_data['texture'] = texture_list[0]
+      else:
+          if random.randint(0, 20) == 4:
+              tile_data['texture'] = texture_list[2]
+          else:
+              tile_data['texture'] = random.choice([
+                  texture_list[0],
+                  texture_list[1],
+                  texture_list[3]
+              ])
+      map_data.append(tile_data)
+  
+  return map_data
+
 def run_events(display: pygame.Surface):
   for event in event_manager:
       if event.timer > 0:
@@ -101,14 +141,80 @@ def run_fragment_map(fragment_list: list, display: pygame.Surface, DISPLAY_SIZE:
 def play_music_theme(vol: float, type: str) -> None:
 
   if type == 'maintheme':
-    pygame.mixer.music.load('./assets/sound/menu_theme.mp3')
+    pygame.mixer.music.load('./assets/sound/theme_songs/menu_theme.mp3')
   elif type == 'gameplay':
-    pygame.mixer.music.load('./assets/sound/gameplay_theme.mp3')
+    pygame.mixer.music.load('./assets/sound/theme_songs/gameplay_theme.mp3')
+  elif type == 'boss':
+    pygame.mixer.music.load('./assets/sound/theme_songs/boss_theme.mp3')
+  elif type == 'defeat':
+    pygame.mixer.music.load('./assets/sound/theme_songs/defeat_theme.mp3')
   else: 
     return
   
   pygame.mixer.music.set_volume(vol)
-  pygame.mixer.music.play(-1)
+  pygame.mixer.music.play(-1, fade_ms=2000)
+
+def get_base_stats_from(enemy: str) -> dict:
+  base_stats = {}
+
+  match enemy:
+    case 'orc':
+      base_stats['max_hp'] = random.randint(25, 30)
+      base_stats['max_mana'] = random.randint(25, 35)
+      base_stats['strength'] = 30
+      base_stats['intelligence'] = 15
+      base_stats['atk_range'] = 20
+
+    case 'orc_archer':
+      base_stats['max_mana'] = random.randint(20, 30)
+      base_stats['strength'] = 40
+      base_stats['max_hp'] = 0
+      base_stats['intelligence'] = 20
+      base_stats['atk_range'] = 90
+
+    case 'orc_axe':
+      base_stats['max_hp'] = random.randint(45, 55)
+      base_stats['max_mana'] = random.randint(15, 25)
+      base_stats['strength'] = 55
+      base_stats['intelligence'] = 10
+      base_stats['atk_range'] = 20
+
+    case 'shadow':
+      base_stats['max_hp'] = random.randint(30, 35)
+      base_stats['max_mana'] = random.randint(45, 55)
+      base_stats['strength'] = 45
+      base_stats['intelligence'] = 40
+      base_stats['atk_range'] = 20
+
+    case 'shadow_archer':
+      base_stats['max_mana'] = random.randint(40, 50)
+      base_stats['strength'] = 35
+      base_stats['max_hp'] = 0
+      base_stats['intelligence'] = 30
+      base_stats['atk_range'] = 90
+
+    case 'shadow_caster':
+      base_stats['max_hp'] = 0
+      base_stats['max_mana'] = random.randint(100, 120)
+      base_stats['strength'] = 15
+      base_stats['intelligence'] = 90
+      base_stats['atk_range'] = 210
+
+    case 'orc_boss':
+      base_stats['max_hp'] = random.randint(420, 460)
+      base_stats['max_mana'] = random.randint(40, 50)
+      base_stats['strength'] = 80
+      base_stats['atk_range'] = 40
+      base_stats['intelligence'] = 25
+
+    case 'shadow_caster_boss':
+      base_stats['max_hp'] = random.randint(300, 340)
+      base_stats['max_mana'] = random.randint(300, 350)
+      base_stats['strength'] = 25
+      base_stats['atk_range'] = 210
+      base_stats['intelligence'] = 140
+
+  return base_stats
 
 def add_n_enemies(
   map_data: list,
@@ -117,47 +223,43 @@ def add_n_enemies(
   enemy_name: str,
   display: pygame.Surface,
   sound_manager: SoundManager,
-  wave: int = 1
+  wave: int = 1,
+  is_boss: bool = False,
 ) -> list:
   
-  # Adding different attribute values for different stronger creatures
-  match enemy_name:
-    case 'orc_axe':
-      enemy_strength = 30
-      enemy_hp = random.randint(200, 250) + (wave * 2)
-      enemy_level = random.randint(5,8)
+  enemy_stats = get_base_stats_from(enemy_name)
 
-    case _: # Default
-      enemy_strength = 10
-      enemy_hp = random.randint(30,60) + (wave * 2)
-      enemy_level = 1
-
-  # Making sure the attack range is set properly
-  if enemy_name == 'orc_archer' or enemy_name == 'shadow_archer':
-    enemy_atk_range = 90
-
-  elif enemy_name == 'shadow_caster':
-    enemy_atk_range = 210
-
+  # Entity names are used here to reference sprite
+  # names and not cause "NotFound" errors
+  if enemy_name == 'orc_boss':
+    entity_name = 'orc_axe'
+  elif enemy_name == 'shadow_caster_boss':
+    entity_name = 'shadow_caster'
   else:
-    enemy_atk_range = 20
+    entity_name = enemy_name
 
   for _ in range(n):
     enemy_group.add(
       Enemy(
-        tile=map_data[random.randint(50, 255)], 
-        name=enemy_name, 
-        hp=enemy_hp,
-        atk_range=enemy_atk_range,
+        tile=map_data[random.randint(50, 255)] if not is_boss else map_data[135], # Centerish if it is a boss enemy
+        name=entity_name, 
         display=display,
-        level=enemy_level,
+        level=wave,
         wave=wave,
-        strength=enemy_strength,
-        sound_manager=sound_manager
+        hp=enemy_stats['max_hp'],
+        mana=enemy_stats['max_mana'],
+        atk_range=enemy_stats['atk_range'],
+        strength=enemy_stats['strength'],
+        intelligence=enemy_stats['intelligence'],
+        sound_manager=sound_manager,
+        is_boss=is_boss
       )
     )
   
   return enemy_group.sprites()
+
+def get_wave_multiplier(wave) -> float:
+    return 1 + (wave - 1) * 0.15
 
 def check_dead_enemy_for_xp(enemies_list: list[Enemy]) -> int:
   for enemy in enemies_list:

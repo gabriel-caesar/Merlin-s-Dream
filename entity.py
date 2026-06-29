@@ -19,15 +19,22 @@ class Entity(pygame.sprite.Sprite):
     idle: list[pygame.Surface],
     strength: int,
     intelligence: int,
-    haste: int,
     hp: int,
     mana: int,
     level: int,
     xp: int,
-    max_xp: int
+    max_xp: int,
+    attribute_multiplier: float,
+    is_boss: bool = False
   ):
     pygame.sprite.Sprite.__init__(self)
+    self.is_boss = is_boss
+
+    # Making sure the entity gets resized properly depending if it is a boss or not
     self.image = idle[0]
+    if self.is_boss:
+      self.image = pygame.transform.scale(self.image, (self.image.get_width() * 2, self.image.get_height() * 2))
+
     self.on_tile = tile # Where the character is on top of
     self.rect = self.image.get_rect(midbottom=self.on_tile['hover_area'].center)
     self.animation_state = 'idle'
@@ -43,17 +50,15 @@ class Entity(pygame.sprite.Sprite):
     self.direction = pygame.Vector2()
     self.alive = True
     self.hit_effects_list = []
-    self.learned_spells = []
     self.distance_from_enemy = 0
 
     self.level = level
-    self.strength = strength + self.level * 3
-    self.intelligence = intelligence + self.level * 3
-    self.haste = haste + self.level
-    self.max_hp = hp + self.level * 2
-    self.hp = hp + self.level * 2
-    self.max_mana = mana + self.level * 2 + self.intelligence
-    self.mana = mana + self.level * 2 + self.intelligence
+    self.strength = int((strength + self.level * 2) * attribute_multiplier)
+    self.intelligence = int((intelligence + self.level * 2) * attribute_multiplier)
+    self.max_hp = int((hp + self.level * 2 + self.strength * 2) * attribute_multiplier)
+    self.hp = self.max_hp
+    self.max_mana = int((mana + self.level * 3 + self.intelligence * 5) * attribute_multiplier)
+    self.mana = self.max_mana
     self.xp = xp
     self.max_xp = max_xp
 

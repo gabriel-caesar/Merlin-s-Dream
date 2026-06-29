@@ -36,9 +36,9 @@ def load(
       if event.ui_element == menu_elements['play_button']:
         sound_manager.sounds['button_click'].play()
         # Plays the gameplay music theme
-        # c_music_volume = round(menu_elements['music_slider'].get_current_value() / 100, ndigits=2)
+        music_vol = round(menu_elements['music_slider'].get_current_value() / 100, ndigits=2)
 
-        # utils.play_music_theme(vol=c_music_volume, type='gameplay')
+        utils.play_music_theme(vol=music_vol, type='gameplay')
         return False
       
       if event.ui_element == menu_elements['quit_button']:

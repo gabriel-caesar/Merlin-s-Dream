@@ -1,4 +1,3 @@
-import math
 import pygame
 import pygame_gui
 import sys
@@ -36,11 +35,12 @@ DISPLAY_SIZE = (640, 360)
 HPBAR_WIDTH = 115
 PLAYER_DIED = pygame.USEREVENT + 6 # Fired when player dies to render certain UI elements
 GO_TO_MAIN_MENU = pygame.USEREVENT + 7 # When player goes from the gameplay screen to the main menu
-WAVE_CHANGED = pygame.USEREVENT + 8 # Fires when waves advance
+WAVE_CHANGED_AFTER_BOSS = pygame.USEREVENT + 8 # Fires when waves advance
 FADE_IN = pygame.USEREVENT + 9
 FADE_OUT = pygame.USEREVENT + 10
 LEVEL_UP = pygame.USEREVENT + 11
 SCREEN_SHAKE_EVENT = pygame.USEREVENT + 12
+CHANGE_SONG_TRACK = pygame.USEREVENT + 13
 
 # Sound manager
 sound_manager = SoundManager()
@@ -62,12 +62,23 @@ game_over_manager = utils.create_ui_manager(DISPLAY_SIZE)
 gui_manager = utils.create_ui_manager(DISPLAY_SIZE)
 overlay_manager = utils.create_ui_manager(DISPLAY_SIZE)
 reading_earned_spell = False
-get_all_skills = False
+all_skills_learned = False
 warnings: list[Warning] = []
 
-# Main grass tiles
-grass_block = pygame.image.load('./grass.png')
-grass_rect = grass_block.get_rect()
+# Main floor tiles
+grass_blocks = utils.get_sprites(
+  main_directory=['ui', 'world'],
+  file_prefix='grass'
+)
+stone_blocks = utils.get_sprites(
+  main_directory=['ui', 'world'],
+  file_prefix='stone'
+)
+
+grass_blocks_list = list(grass_blocks.values())
+stone_blocks_list = list(stone_blocks.values())
+
+default_tile = pygame.Rect(0, 0, 32, 34)
 
 # Player spritesheets
 idle_spritesheet = utils.get_sprites(['player'], 'idle')
@@ -97,9 +108,9 @@ def load_fresh_game(
   # Adding five enemies to the map for wave 1
   utils.add_n_enemies(
     map_data=map_data, 
-    n=random.randint(3, 6), 
+    n=random.randint(3, 4), 
     enemy_group=enemiesgroup, 
-    enemy_name='shadow_caster',
+    enemy_name='orc',
     display=display,
     sound_manager=sound_manager
   )
@@ -111,7 +122,6 @@ def load_fresh_game(
     gui_elements['char_info']['level'].set_text(f'Level: {fresh_player.level}')
     gui_elements['char_info']['str'].set_text(f'Strength: {fresh_player.strength}')
     gui_elements['char_info']['int'].set_text(f'Int: {fresh_player.intelligence}')
-    gui_elements['char_info']['haste'].set_text(f'Haste: {fresh_player.haste}')
     gui_elements['char_info']['xp'].set_text(f'XP: {fresh_player.xp}/{fresh_player.max_xp}')
     gui_elements['xp_bar'].set_current_progress(0)
 
@@ -185,8 +195,7 @@ class Player(Entity):
     self, 
     tile: dict,
     strength: int = 10,
-    intelligence: int = 10,
-    haste: int = 5,
+    intelligence: int = 45,
     hp: int = 100,
     mana: int = 200,
     level: int = 1,
@@ -199,12 +208,12 @@ class Player(Entity):
       list(idle_spritesheet.values()),
       strength,
       intelligence,
-      haste,
       hp,
       mana,
       level,
       xp,
-      max_xp
+      max_xp,
+      attribute_multiplier=1
     )
 
     # Keeps coherence with the enemy class and prevent errors
@@ -226,6 +235,7 @@ class Player(Entity):
     self.regen_mana_timer = 240
     self.kills = 0
     self.being_targeted_by = [] # Helps with passive regeneration 
+    self.learned_spells = []
     self.casting_firestorm = False
 
     # Potions
@@ -251,30 +261,30 @@ class Player(Entity):
         # Damage is calculated in the cast_firebolt() function
       },
       'teletransport': {
-        'cooldown': 300, # Placeholder cooldown value
-        'cost': 100
+        'cooldown': 180, # Placeholder cooldown value
+        'cost': 60
       },
       'radial_blast': {
-        'cooldown': 600,
-        'cost': 200
+        'cooldown': 240,
+        'cost': 80
         # Damage is calculated in the cast_firebolt() function
       },
       'firestorm': {
-        'cooldown': 120,
-        'cost': 20, # 500
+        'cooldown': 300,
+        'cost': 120,
         # Damage is calculated in the cast_firestorm() function
       }
     }
 
     # ========== PLAYER ACTIVE SPELL COOLDOWNS ==========
     self.active_cooldowns = {
-      'magic_bolt': 0, # Defaults to 120
-      'fire_bolt': 0, # Defaults to 180
-      'teletransport': 0, # Defaults to 300
-      'radial_blast': 0, # Defaults to 600
-      'firestorm': 0, # Defaults to 1200
-      'health_potion': 0, # Defaults to 300
-      'mana_potion': 0 # Defaults to 300
+      'magic_bolt': 0,
+      'fire_bolt': 0,
+      'teletransport': 0,
+      'radial_blast': 0,
+      'firestorm': 0,
+      'health_potion': 0,
+      'mana_potion': 0
     }
 
     # ========== PLAYER CACHE ==========
@@ -541,8 +551,8 @@ class Player(Entity):
       # Turning global variable to get all skills to true.
       # This makes so when leveling up, the program doesn't
       # force Merlin to learn spells anymore.
-      global get_all_skills
-      get_all_skills = True
+      global all_skills_learned
+      all_skills_learned = True
 
       self.learned_spells = [
         'fire_bolt',
@@ -560,13 +570,20 @@ class Player(Entity):
     # Update backend values
     self.level += 1
     self.max_xp = self.max_xp * 2
-    self.strength = self.strength + self.level * 3
-    self.intelligence = self.intelligence + self.level * 3
-    self.haste = self.haste + self.level
-    self.max_hp = self.max_hp + self.level * 2
+    self.strength = self.strength + self.level * 2
+    self.intelligence = self.intelligence + self.level * 2
+    self.max_hp = int(self.max_hp + self.level * 2 + self.strength * 2)
     self.hp = self.max_hp
-    self.max_mana = self.max_mana + self.level * 2 + self.intelligence
+    self.max_mana = int(self.max_mana + self.level * 3 + self.intelligence)
     self.mana = self.max_mana
+
+    # Upgrade potion recovering amount
+    self.potions['mana'] += 1
+    self.potions['health'] += 1
+    self.potions['health_cd'] = int(self.potions['health_cd'] * 0.85) # Decreases by 15%
+    self.potions['mana_cd'] = int(self.potions['mana_cd'] * 0.85) # Decreases by 15%
+    self.potions['heal_amount'] = int(self.potions['heal_amount'] * 1.15) # Increases by 15%
+    self.potions['mana_amount'] = int(self.potions['mana_amount'] * 1.15) # Increases by 15%
 
     # Update the spell cooldowns and the number displayed on the spell infos
     self.update_spell_cooldowns()
@@ -579,7 +596,6 @@ class Player(Entity):
     gui_elements['char_info']['level'].set_text(f'Level: {self.level}')
     gui_elements['char_info']['str'].set_text(f'Strength: {self.strength}')
     gui_elements['char_info']['int'].set_text(f'Int: {self.intelligence}')
-    gui_elements['char_info']['haste'].set_text(f'Haste: {self.haste}')
     gui_elements['char_info']['xp'].set_text(f'XP: {self.xp}/{self.max_xp}')
 
   def update_points(self, type: str, amount: int) -> int:
@@ -597,10 +613,8 @@ class Player(Entity):
 
   def update(self, display: pygame.Surface, game_paused: bool) -> None:
     if not game_paused:
+      # Runs any animation related to Merlin
       self.run_animation(display)
-
-      # If there are projectiles to load, render and handle them
-      self.handle_projectiles(display, self.projectiles)
 
       # Handling warnings such as when Merlin is out of mana
       if warnings:
@@ -625,11 +639,20 @@ class Player(Entity):
           self.spell_caster.cast_firestorm(
             to=mouse_click_area,
             enemies_list=enemies_list
-          )
+          )        
         
         if self.target:
           t = self.target[1].rect
-          display.blit(target_indicator_img, (t.x - 5, t.y + 11))
+
+          if self.target[1].is_boss:
+            larger_indicator_img = pygame.transform.scale(
+              target_indicator_img,
+              (target_indicator_img.get_width() * 2,
+              target_indicator_img.get_height() * 2)
+            )
+            display.blit(larger_indicator_img, (t.x - 9, t.y + 23))
+          else:
+            display.blit(target_indicator_img, (t.x - 5, t.y + 11))
 
         if not self.target and not self.being_targeted_by:
           self.regenerate('hp')
@@ -678,8 +701,11 @@ class Player(Entity):
     display.blit(self.image, self.rect)
     self.run_hit_animation(display)
     
+    # If there are projectiles to load, render and handle them
+    self.handle_projectiles(display, self.projectiles)
+    
 # Rendering measurements
-HALF_TILE = grass_rect.width / 2
+HALF_TILE = default_tile.width / 2
 TILE_SURFACE_OFFSET = 8
 
 class BackgroundFragment:
@@ -701,31 +727,13 @@ for i in range(100):
   fragment = BackgroundFragment()
   fragment_map.append(fragment)
 
-map_data = []
+map_data = utils.create_map(
+  texture_list=grass_blocks_list,
+  HALF_TILE=HALF_TILE,
+  TILE_SURFACE_OFFSET=TILE_SURFACE_OFFSET
+)
 
-for x in range(16):
-  for y in range(16):
-    tile_data = {}
-
-    tile_rect = grass_rect.copy()
-    tile_rect.x = 320 + (x - y) * HALF_TILE # Grows left-down
-    tile_rect.y = 30 + (x + y) * TILE_SURFACE_OFFSET # Grows right-down
-
-    hover_area = pygame.Rect(0, 0, 13, 10)
-    hover_area.center = (
-      tile_rect.x + (tile_rect.width / 2), 
-      tile_rect.y + ((tile_rect.height / 2) - 9)
-    )
-
-    tile_data['tile'] = tile_rect
-    tile_data['hover_area'] = hover_area
-    tile_data['index'] = [x, y]
-
-    map_data.append(tile_data)
-
-player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data, intelligence=30)
-
-
+player, enemies_list, enemiesgroup = load_fresh_game(map_data=map_data)
 
 # ================ GAME USER INTERFACE ================
 # load_gui function creates and isolates all GUI elements
@@ -1032,11 +1040,13 @@ while True:
 
     # ================ MAP TILE RENDERING ================
 
+    current_wave = str(wave_manager.current_wave)
     for data in map_data:
       tile = data['tile']
       hover_area = data['hover_area']
+      texture = data['texture']
 
-      display.blit(grass_block, (tile.x, tile.y))
+      display.blit(texture, (tile.x, tile.y))
       # Uncomment to visualize the tile hover area
       # pygame.draw.rect(display, '#ff0000', hover_area, 1)
 
@@ -1058,7 +1068,21 @@ while True:
                   break
 
           if enemy_hovered:
-              display.blit(attack_indicator_img, (tile.x, tile.y))
+              if e.is_boss:
+                w, h = attack_indicator_img.get_size()
+                larger_indicator_img = pygame.transform.scale(
+                  attack_indicator_img,
+                  (attack_indicator_img.get_width() * 2,
+                  attack_indicator_img.get_height() * 2)
+                )
+
+                display.blit(
+                  source=larger_indicator_img,
+                  dest=(tile.x - w // 2, tile.y - h // 2)
+                )
+
+              else:
+                display.blit(attack_indicator_img, (tile.x, tile.y))
 
               if player.cursor_state != 'target': # Making sure the cursor is not in a target state
                   player.cursor_state = 'attack'
@@ -1084,6 +1108,15 @@ while True:
         pygame.quit()
         sys.exit()
 
+      if event.type == CHANGE_SONG_TRACK:
+        # Playing boss music
+        music_vol = round(menu_elements['music_slider'].get_current_value() / 100, ndigits=2)
+        utils.play_music_theme(vol=music_vol, type=event.track)
+
+        # Playing boss laugh sound
+        if event.track == 'boss':
+          sound_manager.sounds['boss_laugh'].play()
+
       if event.type == SCREEN_SHAKE_EVENT:
         # Enables screen shake and main loop deals with it
         shake_screen = True
@@ -1107,6 +1140,8 @@ while True:
           
         wave_manager.current_wave = 1
 
+        gui_elements['wave_label'].set_text(f'Wave {wave_manager.current_wave}')
+
         # If the player goes to the main menu manually from the pause menu screen
         if game_paused:
           pause_game()
@@ -1123,54 +1158,55 @@ while True:
         gui_elements['player_hp_label'].set_text(text=f'Health: {player.hp}/{player.max_hp}')
         gui_elements['player_mana_label'].set_text(text=f'Mana: {player.mana}/{player.max_mana}')
         
-        utils.play_music_theme(vol=0.3, type='maintheme') # Plays the main menu music theme
+        music_vol = round(menu_elements['music_slider'].get_current_value() / 100, ndigits=2)
+        utils.play_music_theme(vol=music_vol, type='maintheme') # Plays the main menu music theme
 
         # Flag that makes the main menu render
         in_main_menu = True
 
+      if event.type == WAVE_CHANGED_AFTER_BOSS:
+
+        # Changing the map biome accordingly as Merlin defeats different bosses
+        if event.biome == 'grass':
+          chosen_list = grass_blocks_list
+        else:
+          chosen_list = stone_blocks_list
+
+        map_data = utils.create_map(
+          texture_list=chosen_list,
+          HALF_TILE=HALF_TILE,
+          TILE_SURFACE_OFFSET=TILE_SURFACE_OFFSET
+        )
+
       if event.type == LEVEL_UP:
         bleep_index = random.randint(0,2)
         spells = utils.get_merlins_spells_library()
-        # Show the reading spell panel
+
+        # Don't learn more skills
+        if len(player.learned_spells) == 4:
+          all_skills_learned = True
 
         # Making sure the game is not set for Merlin to start
         # with all skills he can learn
-        if not get_all_skills:
+        if not all_skills_learned:
+          # Randoming the skill learned per level
+          skill_index = random.randint(0,3)
 
-          if player.level == 3:
-            update_game_on_lvl_up(
-              player=player,
-              overlay_elements=overlay_elements,
-              spells=spells,
-              spell_learned='firestorm'
-            )
+          spell_to_learn = []
+          for value, _ in player.spells.items():
+            if value != 'magic_bolt':
+              spell_to_learn.append(value)
 
-          elif player.level == 2:
-            update_game_on_lvl_up(
-              player=player,
-              overlay_elements=overlay_elements,
-              spells=spells,
-              spell_learned='radial_blast'
-            )
+          # Getting a spell that's not yet learned
+          while spell_to_learn[skill_index] in player.learned_spells:
+            skill_index = random.randint(0,3)
 
-
-          elif player.level == 4:
-            update_game_on_lvl_up(
-              player=player,
-              overlay_elements=overlay_elements,
-              spells=spells,
-              spell_learned='fire_bolt'
-            )
-
-          elif player.level == 5:
-            update_game_on_lvl_up(
-              player=player,
-              overlay_elements=overlay_elements,
-              spells=spells,
-              spell_learned='teletransport'
-            )
-
-        
+          update_game_on_lvl_up(
+            player=player,
+            overlay_elements=overlay_elements,
+            spells=spells,
+            spell_learned=spell_to_learn[skill_index]
+          ) 
 
       if event.type == pygame_gui.UI_TEXT_EFFECT_FINISHED:
         # Stop the text bleep sound loop
@@ -1181,18 +1217,21 @@ while True:
           shake_screen = True
 
         if event.key == pygame.K_ESCAPE and player.alive:
-          pause_game(show_pause_menu=False if reading_earned_spell else True)
-          
-          # If player is in the new spell learned screen while
-          # clicking ESC, then hide the spell screen, unpause the
-          # game and toggle the reading_earned_spell variable to False
-          if reading_earned_spell:
-            # Play button sound
-            sound_manager.sounds['button_click_2'].play()
-            # Stop text bleeping
-            sound_manager.play_bleep_sound(play=0)
-            overlay_elements['panel'].hide()
-            reading_earned_spell = False
+          if player.target:
+            player.target = []
+          else:
+            pause_game(show_pause_menu=False if reading_earned_spell else True)
+            
+            # If player is in the new spell learned screen while
+            # clicking ESC, then hide the spell screen, unpause the
+            # game and toggle the reading_earned_spell variable to False
+            if reading_earned_spell:
+              # Play button sound
+              sound_manager.sounds['button_click_2'].play()
+              # Stop text bleeping
+              sound_manager.play_bleep_sound(play=0)
+              overlay_elements['panel'].hide()
+              reading_earned_spell = False
 
           sound_manager.sounds['button_click'].play()
 
@@ -1290,7 +1329,9 @@ while True:
           if event.button == 3:
 
             # Clearing any target-based spell if any
-            player.spell_to_be_cast = None
+            # Merlin is able to move while radial blast is being cast
+            if not isinstance(player.spell_to_be_cast, RadialBlast): 
+              player.spell_to_be_cast = None
             
             # If the player is trying to move while with the
             # target cursor, change it
@@ -1336,10 +1377,6 @@ while True:
 
             if player.cursor_state == 'target':
               player.cursor_state = 'normal'
-
-            for e in enemies_list:
-              if e.rect.midbottom != hover_area.center:
-                player.target = []
 
       if event.type == pygame_gui.UI_BUTTON_PRESSED:
         if event.ui_element == gui_elements['settings_button'] and player.alive:
@@ -1426,7 +1463,14 @@ while True:
     # Triggers the vanish_timer inside player.update()
     if player_died_game_over and player.alive:
       player.alive = False # Avoids re-loop
+      player.casting_firestorm = False
+      player.cursor_state = 'normal'
+      player.spell_to_be_cast = None
       sound_manager.sounds['merlin_death'].play()
+      pygame.event.post(pygame.event.Event(
+        CHANGE_SONG_TRACK,
+        track='defeat'
+      ))
 
 
     # =================== LAYERING ===================

@@ -132,6 +132,9 @@ class SpellCaster():
       display=self.display
     )
 
+    # Play cast sound
+    self.sound_manager.sounds['fire_bolt']['cast'].play()
+
     # Using mana
     self.entity.use_mana(mana_cost)
 
@@ -147,6 +150,9 @@ class SpellCaster():
     if self.entity.mana < mana_cost or self.entity.active_cooldowns['firestorm'] > 0:
       return False
     else:
+      # Play spell channeling sound effect
+      self.sound_manager.sounds['spell_channeling'].play(-1)
+
       # Using mana
       self.entity.use_mana(mana_cost)
 
@@ -200,6 +206,7 @@ class SpellCaster():
         self.meteor_timer = 5
 
     else:
+      self.sound_manager.sounds['spell_channeling'].stop()
       self.entity.casting_firestorm = False
 
   def handle_warnings(self, mana_cost: int, target: Entity | int = 'Not existent') -> None | str:

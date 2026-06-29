@@ -7,10 +7,14 @@ class SoundManager():
       'click_1_sound': None,
       'click_3_sound': None,
       'activate_all_spells': None,
+      'spell_channeling': None,
+      'boss_laugh': None,
 
-      'orc': {
-        'swing': None,
-        'arrow': None,
+      'swing': None,
+
+      'arrow': {
+        'cast': None,
+        'impact': None
       },
 
       'orc_death_sounds': {
@@ -66,14 +70,17 @@ class SoundManager():
     self.sounds['shadow_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/shadow_bolt/impact.ogg')
     self.sounds['magic_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/magic_bolt/impact.wav')
     self.sounds['teletransport']['cast'] = pygame.mixer.Sound('./assets/sound/spells/tp/cast.wav')
+    self.sounds['spell_channeling'] = pygame.mixer.Sound('./assets/sound/spells/channeling.ogg')
 
     # ======= CURSOR =======
     self.sounds['click_1_sound'] = pygame.mixer.Sound('./assets/sound/click_1_sound.wav')
     self.sounds['click_3_sound'] = pygame.mixer.Sound('./assets/sound/click_3_sound.wav')
 
     # ======= ENEMIES =======
-    self.sounds['orc']['swing'] = pygame.mixer.Sound('./assets/sound/enemies/orc/melee_swing.wav')
-    self.sounds['orc']['arrow'] = pygame.mixer.Sound('./assets/sound/enemies/orc/arrow_sfx.ogg')
+    self.sounds['swing'] = pygame.mixer.Sound('./assets/sound/enemies/default/melee_swing.wav')
+    self.sounds['arrow']['cast'] = pygame.mixer.Sound('./assets/sound/enemies/default/arrow/cast.wav')
+    self.sounds['arrow']['impact'] = pygame.mixer.Sound('./assets/sound/enemies/default/arrow/impact.wav')
+    self.sounds['boss_laugh'] = pygame.mixer.Sound('./assets/sound/boss_laugh.mp3')
 
     # ======= DIFFERENT TEXT BLEEP SOUNDS =======
     for k,_ in self.sounds['text_bleep'].items():
@@ -95,12 +102,17 @@ class SoundManager():
 
           if k == 'text_bleep':
             inner_sound.set_volume(volume + 0.5)
+          elif k == 'arrow':
+            inner_sound.set_volume(volume - 0.2)
           else:
             inner_sound.set_volume(volume)
 
       else:
+          # Slight lower volume sound effects
           if k == 'click_1_sound' or k == 'click_3_sound':
             sound.set_volume(volume - 0.29)
+          elif k == 'spell_channeling':
+            sound.set_volume(volume - 0.15)
           else:
             sound.set_volume(volume)
 

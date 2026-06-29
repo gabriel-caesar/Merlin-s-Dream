@@ -25,12 +25,12 @@ class Enemy(Entity):
     wave: int = 1,
     strength: int = 10,
     intelligence: int = 10,
-    haste: int = 5,
     hp: int = 100,
     mana: int = 100,
     level: int = 1,
     xp: int = 0,
     max_xp:int = 100,
+    is_boss: bool = False
   ):
     self.idle_spritesheet = list(utils.get_sprites(['enemies', name], 'idle').values())
     self.running_spritesheet = list(utils.get_sprites(['enemies', name], 'walk').values())
@@ -39,7 +39,7 @@ class Enemy(Entity):
     self.attack_spritesheet = list(utils.get_sprites(['enemies', name, 'attack'], 'attack').values())
     self.backview_attack_spritesheet = list(utils.get_sprites(['enemies', name, 'attack', 'backview'], 'attack').values())
 
-    self.level = level + int(wave * 0.8)
+    self.level = level + random.randint(0, 1)
 
     Entity.__init__(
       self, 
@@ -47,12 +47,13 @@ class Enemy(Entity):
       self.idle_spritesheet,
       strength,
       intelligence,
-      haste,
       hp,
       mana,
       self.level,
       xp,
-      max_xp
+      max_xp,
+      attribute_multiplier=utils.get_wave_multiplier(wave),
+      is_boss=is_boss
     )
 
     self.sound_manager = sound_manager
@@ -63,18 +64,28 @@ class Enemy(Entity):
     self.speed = 0.5
     self.chase_cooldown = 0
     self.xp_value = int(self.level + (wave * 50))
+    self.is_boss = is_boss
+    self.chase_cooldown_placeholder = 120
+    self.got_frenzy = False
 
     self.attacking = False
     self.atk_type = None
     self.atk_range = atk_range
     self.atk_cooldown = 0
-    self.damage = random.randint(self.strength - 3, self.strength + 3)
+    self.damage = self.strength
     self.projectile_list = []
+
+    if self.atk_range <= 20 or self.atk_range == 40:
+      self.atk_type = 'slash'
+    else: 
+      self.atk_type = 'ranged_hit'
+
 
     # ========== AGGRO RELATED LOGIC ==========
     self.aggro = False
     self.aggro_range = 60
     self.aggro_pointer = pygame.image.load('./assets/ui/aggro_pointer.png')
+    self.frenzy_pointer = pygame.image.load('./assets/ui/frenzy_pointer.png')
     self.aggro_pointer_rect = self.aggro_pointer.get_rect()
     self.aggro_pointer_timer = 0
 
@@ -93,20 +104,31 @@ class Enemy(Entity):
       self.name = self.name.split('_')
       self.name = ' '.join(self.name)
 
+    if self.is_boss:
+      if 'orc' in self.name:
+        display_name = 'OGRE LORD'
+      elif 'shadow' in self.name:
+        display_name = 'SHADOW LICH'
+    else:
+      display_name = self.name.upper()
+
     # Making sure the text is small for longer names
     if len(self.name) > 8:
       self.font = pygame.font.Font('./font/Avqest-eeel.ttf', 14)
     else:
       self.font = pygame.font.Font('./font/Avqest-eeel.ttf', 16)
 
-    self.hpbar_text = self.font.render(self.name.upper(), True, '#ffffff')
+    self.hpbar_text = self.font.render(display_name, True, '#ffffff')
     self.hpbar_text_rect = self.hpbar_text.get_rect()
 
     # ========== LEVEL/HP INFO GUI ==========
 
     # Panel image
-    self.level_container_img = pygame.image.load('./assets/ui/button_image.png')
-    self.level_container_img = pygame.transform.scale(self.level_container_img, (100, 15))
+    self.level_container_img = pygame.image.load('./assets/ui/enemy_info_bar.png')
+    self.level_container_img = pygame.transform.scale(
+      self.level_container_img,
+      (self.level_container_img.get_width(), 15)
+    )
     self.level_container_rect = self.level_container_img.get_rect(
       center=(
         self.hp_bar_rect.center[0],
@@ -119,7 +141,7 @@ class Enemy(Entity):
     self.level_text_surf = creature_info_font.render(f'Level {self.level}', True, '#ff0000')
     self.level_text_rect = self.level_text_surf.get_rect(
       center=(
-        self.level_container_rect.center[0] - 25,
+        self.level_container_rect.center[0] - 45,
         self.level_container_rect.center[1]
       )
     )
@@ -128,7 +150,7 @@ class Enemy(Entity):
     self.hp_points_surf = creature_info_font.render(f'{self.hp}/{self.max_hp}', True, '#ffffff')
     self.hp_points_rect = self.hp_points_surf.get_rect(
       center=(
-        self.level_container_rect.center[0] + 25,
+        self.level_container_rect.center[0] + 40,
         self.level_container_rect.center[1]
       )
     )
@@ -149,7 +171,7 @@ class Enemy(Entity):
         self.aggro_pointer_rect
       )
 
-  def run_animation(self, is_boss: bool = False) -> None:
+  def run_animation(self) -> None:
     if len(self.animation_frames) > 1:
 
       # ============== RUNNING ANIMATION ==============
@@ -187,7 +209,8 @@ class Enemy(Entity):
       self.image = self.animation_frames[int(self.animation_index)]
       
     self.image = pygame.transform.flip(self.image, self.flip, False)
-    if is_boss: pygame.transform.scale2x(self.image)
+    if self.is_boss: 
+      self.image = pygame.transform.scale(self.image, (self.image.get_width() * 2, self.image.get_height() * 2))
 
   def patrol(self, map_data: list) -> None:
 
@@ -269,9 +292,11 @@ class Enemy(Entity):
       if int(distance) <= self.atk_range:
         # Stop moving and attack
         self.destination_tile = {}
-        self.atk_type = 'slash' if self.atk_range <= 20 else 'ranged_hit'
+        self.atk_type = self.atk_type
         self.attack(player, type=self.atk_type)
-        self.chase_cooldown = 120
+
+        # Determines an interval before chasing the player again
+        self.chase_cooldown = self.chase_cooldown_placeholder 
 
   def attack(self, player: Player, type: Literal['slash', 'ranged_hit']) -> None:
     # Change the facing direction if the entity is currently attacking and not moving
@@ -283,17 +308,33 @@ class Enemy(Entity):
     else: 
       if type == 'slash':
         global slash_imgs_list
-        player.take_damage(self.damage, bb_color="#ff0000", sound_manager=self.sound_manager)
+        given_damage = random.randint(self.damage - 3, self.damage + 3)
+        player.take_damage(given_damage, bb_color="#ff0000", sound_manager=self.sound_manager)
         player.calculate_current_bar_width('hp')
         hit_effect = HitEffect(target=player, type=type) # Attention: type == slash
         self.hit_effects_list.append(hit_effect)
-        self.sound_manager.sounds['orc']['swing'].play() # Play the weapon swing sound()
+        self.sound_manager.sounds['swing'].play() # Play the weapon swing sound()
+
+        if self.is_boss:
+          # Screen shake
+          pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=120))
 
       elif type == 'ranged_hit':
+        
+        if self.name == 'shadow caster':
+          self.sound_manager.sounds['fire_bolt']['cast'].play()
+          d1 = self.intelligence - 3
+          d2 = self.intelligence + 3
+          self.damage = random.randint(d1, d2)
+        else:
+          self.sound_manager.sounds['arrow']['cast'].play() # Play the shooting arrow sound
 
         self.projectile = Projectile(
           caster=self,
-          name='fire_bolt' if self.name == 'shadow caster' else type, # Attention: name='ranged_hit'
+          # Attention: type can be slash or ranged_hit, but for 
+          # fire_bolt matching shadow caster means that they share
+          # the same impact sound
+          name='fire_bolt' if self.name == 'shadow caster' else type,
           origin=self.rect.center, 
           dmg_value=self.damage,
           target=player,
@@ -303,10 +344,6 @@ class Enemy(Entity):
         )
         self.projectile_list.append(self.projectile)
 
-        if self.name == 'shadow caster':
-          self.sound_manager.sounds['fire_bolt']['cast'].play()
-        else:
-          self.sound_manager.sounds['orc']['arrow'].play() # Play the shooting arrow sound
       
       self.attacking = True
       self.atk_cooldown = 120
@@ -346,10 +383,23 @@ class Enemy(Entity):
         self.animation_frames = []
         this_name = self.name.split(' ')
         this_name = '_'.join(this_name)
-        self.image = pygame.image.load(f'./assets/enemies/{this_name}/dead.png')
+
+        dead_img = pygame.image.load(f'./assets/enemies/{this_name}/dead.png')
+        self.image = dead_img
+        if self.is_boss:
+          # Scaling the death assets if necessary
+          self.image = pygame.transform.scale(dead_img, (dead_img.get_width() * 2, dead_img.get_height() * 2))
 
         blood_indicator = pygame.image.load('./assets/cursor/blood_indicator.png')
-        self.display.blit(blood_indicator, (self.rect.x - 5, self.rect.y + 12))
+
+        # Scaling the death assets if necessary
+        if self.is_boss:
+          blood_indicator = pygame.transform.scale(blood_indicator, (blood_indicator.get_width() * 2, blood_indicator.get_height() * 2))
+          self.display.blit(blood_indicator, (self.rect.x - 5, self.rect.y + 23))
+        else:
+          self.display.blit(blood_indicator, (self.rect.x - 5, self.rect.y + 12))
+
+
         self.vanish_timer -= 1
 
         if self.vanish_timer == 0:
@@ -357,6 +407,7 @@ class Enemy(Entity):
           return
         
       else:
+
 
         # Getting the distance between the enemy and the player for aggro
         self.distance_from_enemy = self.check_distance_from_enemy(enemy=player)
@@ -370,7 +421,7 @@ class Enemy(Entity):
           self.patrol(map_data=map_data)
 
           if (
-            self.hp < self.max_hp or # If enemy gets hit
+            self.hp < self.max_hp or # If enemy gets  hit
             self.distance_from_enemy <= self.aggro_range and
             self.distance_from_enemy > 0 
           ):
@@ -378,6 +429,26 @@ class Enemy(Entity):
             self.aggro_pointer_timer = 180
 
         else:
+
+          # Boss becomes frenzy
+          if self.is_boss and self.hp < self.max_hp // 2:
+            self.chase_cooldown_placeholder = 60
+
+            # Frenzy icon
+            frenzy_pointer_rect = self.frenzy_pointer.get_rect(
+              midbottom = (
+                self.rect.midtop[0],
+                self.rect.midtop[1] - 5 # Slightly to the top of the enemy's head
+              )
+            )    
+            self.display.blit(self.frenzy_pointer, frenzy_pointer_rect)
+
+
+            if not self.got_frenzy: # Prevents re-looping
+              self.strength += 100 # Damage boost
+              self.damage = random.randint(self.strength - 3, self.strength + 3) # Reassign updated damage value
+              self.got_frenzy = True
+
           self.chase(player)
 
           # ============== PROJECTILES FOR RANGED ENEMIES ==============

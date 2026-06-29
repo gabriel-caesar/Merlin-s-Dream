@@ -207,7 +207,7 @@ def load_gui(
   )
 
   tp_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 5s | Mana: 100</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 3s | Mana: 60</font>",
     relative_rect=(tp_portrait.rect.x + 10,tp_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
@@ -249,7 +249,7 @@ def load_gui(
   )
 
   radial_blast_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 10s | Mana: 200</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 4s | Mana: 80</font>",
     relative_rect=(radial_blast_portrait.rect.x - 100,radial_blast_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
@@ -291,7 +291,7 @@ def load_gui(
   )
 
   firestorm_cd_text = pygame_gui.elements.UITextBox(
-    html_text="<font color='#f2bd29'>Cooldown: 20s | Mana: 500</font>",
+    html_text="<font color='#f2bd29'>Cooldown: 5s | Mana: 120</font>",
     relative_rect=(firestorm_portrait.rect.x + 10,firestorm_portrait.rect.y - 102,-1,-1),
     manager=gui_manager,
     object_id=ObjectID(class_id='@cooldown_text'),
@@ -367,7 +367,8 @@ def load_gui(
     html_text=("<font color='#f2bd29'><b>Firestorm</b><br></font>"
       "This is Merlin's <font color='#FF0000'>firestorm</font>, "
       "it will be casted by the press of a button. Summons a meteor falling "
-      "from the skies, which when it hits the ground causes a massive destruction."),
+      "from the skies, which when it hits the ground causes a massive destruction. <br><br>"
+      "<font color='#f2bd29'>The landing point will follow the mouse pointer even if you move it around while casting</font>."),
     object_id=ObjectID(class_id='@spell_labels')
   )
 
@@ -394,6 +395,7 @@ def load_gui(
     text=f'Level: {player.level}',
     parent_element=char_info_panel,
     container=char_info_panel,
+    object_id=ObjectID(class_id='@char_info_labels'),
     anchors={
       'centerx': 'centerx'
     }
@@ -404,6 +406,7 @@ def load_gui(
     text=f'Strength: {player.strength}',
     parent_element=char_info_panel,
     container=char_info_panel,
+    object_id=ObjectID(class_id='@char_info_labels'),
     anchors={
       'centerx': 'centerx'
     }
@@ -414,36 +417,29 @@ def load_gui(
     text=f'Int: {player.intelligence}',
     parent_element=char_info_panel,
     container=char_info_panel,
-    anchors={
-      'centerx': 'centerx'
-    }
-  )
-  char_haste_label = pygame_gui.elements.UILabel(
-    relative_rect=(0,75,-1,-1),
-    manager=gui_manager,
-    text=f'Haste: {player.haste}',
-    parent_element=char_info_panel,
-    container=char_info_panel,
+    object_id=ObjectID(class_id='@char_info_labels'),
     anchors={
       'centerx': 'centerx'
     }
   )
   char_kill_count_label = pygame_gui.elements.UILabel(
-    relative_rect=(0,90,-1,-1),
+    relative_rect=(0,75,-1,-1),
     manager=gui_manager,
     text=f'Kills: {player.kills}',
     parent_element=char_info_panel,
     container=char_info_panel,
+    object_id=ObjectID(class_id='@char_info_labels'),
     anchors={
       'centerx': 'centerx'
     }
   )
   char_xp_label = pygame_gui.elements.UILabel(
-    relative_rect=(0,120,-1,-1),
+    relative_rect=(0,130,-1,-1),
     manager=gui_manager,
     text=f'XP: {player.xp}/{player.max_xp}',
     parent_element=char_info_panel,
     container=char_info_panel,
+    object_id=ObjectID(class_id='@char_info_labels'),
     anchors={
       'centerx': 'centerx'
     }
@@ -620,7 +616,6 @@ def load_gui(
       'level': char_level_label,
       'str': char_str_label,
       'int': char_int_label,
-      'haste': char_haste_label,
       'xp': char_xp_label,
       'kills': char_kill_count_label
     },

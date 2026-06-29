@@ -51,19 +51,24 @@ class Projectile():
       self.speed = 6
 
     if name == 'fire_bolt' or name == 'radial_blast':
-      if self.caster.name == 'shadow caster':
+      if self.caster.name == 'shadow caster' or self.caster.name == 'shadow caster boss':
         self.color = SHADOW_BOLT_COLOR
       else:
         self.color = FIRE_BOLT_COLOR
 
       self.bb_color = ENEMY_BB_COLOR
-      self.rect = pygame.Rect(origin[0], origin[1], 6, 6) 
+
+      if self.caster.name == 'shadow caster boss':
+        self.rect = pygame.Rect(origin[0], origin[1], 12, 12) # Making the shadow bolt bigger
+      else:
+        self.rect = pygame.Rect(origin[0], origin[1], 6, 6) 
+
       self.speed = 2
 
     if name == 'meteor':
       self.color = FIRE_BOLT_COLOR
-      self.bb_color = FIRE_BOLT_COLOR
-      self.rect = pygame.Rect(origin[0], origin[1], 10, 10) 
+      self.bb_color = ENEMY_BB_COLOR
+      self.rect = pygame.Rect(origin[0], origin[1], 12, 12) 
       self.speed = 2
 
     if name == 'ranged_hit':
@@ -223,6 +228,9 @@ class Projectile():
           case 'magic_bolt':
             self.sound_manager.sounds['magic_bolt']['impact'].play()          
 
+          case 'ranged_hit':
+            self.sound_manager.sounds['arrow']['impact'].play()          
+
         return 1 # Tells the receiver to kill the projectile
         
     return 0 # Do nothing with the projectile
@@ -291,7 +299,12 @@ class RadialBlast():
         # Checking collision with an enemy
         for e in enemies_list:
           if e.rect.colliderect(bolt.rect) and e.alive:
-            self.firebolts.remove(bolt)
+
+            # Prevents game crash if this bolt is not
+            # in the firebolts array by any reason
+            if bolt in self.firebolts:
+              self.firebolts.remove(bolt)
+
             e.take_damage(
               dmg=bolt.dmg, 
               is_enemy=bolt.is_enemy, 
