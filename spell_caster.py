@@ -10,17 +10,28 @@ if TYPE_CHECKING:
   from entity import Entity
   from sound_manager import SoundManager
   from enemy import Enemy
+  from warning_manager import WarningManager
 
 class SpellCaster():
-  def __init__(self, entity: Entity, display: pygame.Surface, sound_manager: SoundManager):
+  def __init__(
+    self, 
+    entity: Entity, 
+    display: pygame.Surface, 
+    sound_manager: SoundManager,
+    warning_manager: WarningManager | None
+  ):
     self.entity = entity
     self.display = display
     self.sound_manager = sound_manager  
+    self.warning_manager = warning_manager
     self.firestorm_casting_timer = 0
     self.meteor_timer = 0
 
   def cast_magicbolt(self, spell_data: dict) -> None | str:
     mana_cost = spell_data['cost']
+
+    # Handles edge case warnings to provide better gameplay
+    self.handle_warnings(mana_cost=mana_cost, spell_name='magic_bolt')
     
     # If at least of the conditions fail, return a warning
     if (
@@ -55,19 +66,25 @@ class SpellCaster():
     self.entity.active_cooldowns['magic_bolt'] = spell_cooldown
 
   def cast_firebolt(self, spell_data: dict) -> str | None:
-    if not self.entity.target: # If there's no target, return
-      return
-    
     # Calculating the fire bolt damage
     d1 = self.entity.intelligence - 10
     d2 = self.entity.intelligence + 40
     fire_bolt_damage = random.randint(d1, d2)
 
-    damage = fire_bolt_damage
-    target = self.entity.target[1]
-    spell_cooldown = spell_data['cooldown']
     mana_cost = spell_data['cost']
+    damage = fire_bolt_damage
+    spell_cooldown = spell_data['cooldown']
 
+    # Handles edge case warnings to provide better gameplay
+    self.handle_warnings(mana_cost=mana_cost, spell_name='fire_bolt')
+
+    # If there's no target, return
+    if not self.entity.target:
+      return
+    
+    # If there is a target, it will be created after the check
+    target = self.entity.target[1]
+    
     # Don't execute if any of these conditions are met
     if (
       self.entity.mana < mana_cost or 
@@ -101,6 +118,9 @@ class SpellCaster():
     mana_cost = spell_data['cost']
     spell_cooldown = spell_data['cooldown'] # Cooldown to be set
 
+    # Handles edge case warnings to provide better gameplay
+    self.handle_warnings(mana_cost=mana_cost, spell_name='teletransport')
+
     if self.entity.mana < mana_cost or self.entity.active_cooldowns['teletransport'] > 0:
       return
 
@@ -115,12 +135,20 @@ class SpellCaster():
     self.entity.use_mana(mana_cost)
     self.entity.active_cooldowns['teletransport'] = spell_cooldown
 
-  def cast_radial_blast(self, spell_data: dict) -> RadialBlast | None | str:
+  def cast_radial_blast(
+    self, 
+    spell_data: dict, 
+    spell_to_be_cast: RadialBlast | None | str
+  ) -> RadialBlast | None | str:
+    
     mana_cost = spell_data['cost']
     spell_cooldown = spell_data['cooldown'] # Cooldown to be set
 
+    # Handles edge case warnings to provide better gameplay
+    self.handle_warnings(mana_cost=mana_cost, spell_name='radial_blast')
+
     if self.entity.mana < mana_cost or self.entity.active_cooldowns['radial_blast'] > 0:
-      return
+      return spell_to_be_cast
 
     radial_blast = RadialBlast(
       entity=self.entity,
@@ -146,6 +174,9 @@ class SpellCaster():
   def check_if_firestorm_is_available(self, spell_data: dict) -> bool:
     mana_cost = spell_data['cost']
     spell_cooldown = spell_data['cooldown'] # Cooldown to be set
+
+    # Handles edge case warnings to provide better gameplay
+    self.handle_warnings(mana_cost=mana_cost, spell_name='firestorm')
 
     if self.entity.mana < mana_cost or self.entity.active_cooldowns['firestorm'] > 0:
       return False
@@ -209,17 +240,70 @@ class SpellCaster():
       self.sound_manager.sounds['spell_channeling'].stop()
       self.entity.casting_firestorm = False
 
-  def handle_warnings(self, mana_cost: int, target: Entity | int = 'Not existent') -> None | str:
-    # Handling warnings
-    if self.entity.distance_from_enemy > self.entity.atk_range + 120:
-      return 'OUT OF RANGE'
-    elif self.entity.mana < mana_cost:
-      return 'OUT OF MANA'
-    elif self.entity.active_cooldowns['fire_bolt'] > 0:
-      return 'SPELL ON COOLDOWN'
-    
-    # Not existent for no-target spells (like tp and radial_blast)
-    elif not target and target != 'Not existent':
-      return 'NO TARGET'
-    else:
-      return None
+  def handle_warnings(self, mana_cost: int, spell_name: str) -> None:
+    '''
+      Provides feedback to the player as warnings, such as "out of mana",
+      "cooldown", etc. It will prevent spam warnings for Merlin's magic bolt
+      since this spell is cast as an auto attack and not triggered by a key press.
+    '''
+
+    # "warnings" will hold all raw texts from warnings
+    # that already exist in warning_manager, preventing warning spams
+    warnings = []
+    for el in self.warning_manager.warning_elements:
+      warnings.append(el['raw_text'])
+
+    if self.entity.mana <= mana_cost:
+      warning_text = 'OUT OF MANA'
+
+      # Prevent warning spams if spell is magic bolt
+      if spell_name == 'magic_bolt':
+        if warning_text not in warnings:
+          pygame.event.post(pygame.event.Event(
+            pygame.USEREVENT + 14,
+            warning=warning_text,
+            index='1'
+          ))
+
+      else:
+        # For clickable spells, don't constraint it
+        pygame.event.post(pygame.event.Event(
+          pygame.USEREVENT + 14,
+          warning=warning_text,
+          index='1'
+        ))
+
+    if self.entity.distance_from_enemy > self.entity.atk_range:
+      warning_text = 'OUT OF RANGE'
+      if spell_name == 'magic_bolt':
+        if warning_text not in warnings:
+          pygame.event.post(pygame.event.Event(
+            pygame.USEREVENT + 14,
+            warning=warning_text,
+            index='2'
+          ))
+
+      else:
+        pygame.event.post(pygame.event.Event(
+          pygame.USEREVENT + 14,
+          warning=warning_text,
+          index='2'
+        ))
+
+    if spell_name != 'magic_bolt':
+      warning_text = 'ON COOLDOWN'
+      if self.entity.active_cooldowns[spell_name] > 0:
+        pygame.event.post(pygame.event.Event(
+          pygame.USEREVENT + 14,
+          warning=warning_text,
+          index='1'
+        ))
+
+    if not self.entity.target:
+      warning_text = 'NO TARGET'
+      if spell_name == 'fire_bolt':
+        pygame.event.post(pygame.event.Event(
+          pygame.USEREVENT + 14,
+          warning=warning_text,
+          index='2'
+        ))

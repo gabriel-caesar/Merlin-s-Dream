@@ -17,7 +17,7 @@ class WaveManager():
     pause_menu_elements: dict,
     screen_veil: ScreenVeil,
     sound_manager: SoundManager,
-    wave: int = 14,
+    wave: int = 1,
   ):
     self.current_wave = wave
     self.wave_timer = 180

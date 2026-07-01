@@ -1,7 +1,7 @@
 from __future__ import annotations
 from entity import Entity
 from hit_effect import HitEffect
-from projectile import Projectile
+from projectile import Projectile, RadialBlast
 import utils
 import pygame
 import random
@@ -316,13 +316,17 @@ class Enemy(Entity):
         self.sound_manager.sounds['swing'].play() # Play the weapon swing sound()
 
         if self.is_boss:
+          if 'orc' in self.name:
+            self.sound_manager.sounds['ogre']['roar'].play()
+            self.sound_manager.sounds['ogre']['impact'].play()
+          # Ogre attack sounds
           # Screen shake
-          pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=120))
+          pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=5, shake_factor = 12))
 
       elif type == 'ranged_hit':
         
         if self.name == 'shadow caster':
-          self.sound_manager.sounds['fire_bolt']['cast'].play()
+          self.sound_manager.sounds['shadow_bolt']['cast'].play()
           d1 = self.intelligence - 3
           d2 = self.intelligence + 3
           self.damage = random.randint(d1, d2)
@@ -347,12 +351,13 @@ class Enemy(Entity):
       
       self.attacking = True
       self.atk_cooldown = 120
-
+      
   def update(
     self, 
     map_data: list, 
     player: Player,
-    game_paused: bool
+    game_paused: bool,
+    hostile_projectiles: list
   ) -> None:
 
     if not game_paused:
@@ -403,8 +408,23 @@ class Enemy(Entity):
         self.vanish_timer -= 1
 
         if self.vanish_timer == 0:
+          if self.name == 'shadow':
+            radial_shadow_blast = RadialBlast(
+              entity=self,
+              origin=(
+                self.rect.center[0] + 2,
+                self.rect.center[1] - 5,
+              ),
+              sound_manager=self.sound_manager,
+              display=self.display
+            )
+
+            hostile_projectiles.append(radial_shadow_blast)
+            self.sound_manager.sounds['shadow_bolt']['cast'].play()
+            
           self.kill()
           return
+
         
       else:
 

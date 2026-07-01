@@ -40,6 +40,7 @@ def load_gui(
     text=f'Health: {player.hp}/{player.max_hp}',
     manager=gui_manager,
     relative_rect=player.bar_rect1,
+    object_id=ObjectID(class_id='@player_points_labels')
   )
   player_hp_label.rect.y -= 25
 
@@ -47,6 +48,7 @@ def load_gui(
     text=f'Mana: {player.mana}/{player.max_mana}',
     manager=gui_manager,
     relative_rect=player.bar_rect2,
+    object_id=ObjectID(class_id='@player_points_labels')
   )
   player_mana_label.rect.y -= 25
 
@@ -527,7 +529,7 @@ def load_gui(
   warning_1_title = pygame_gui.elements.UIButton(
     text='WARNING',
     manager=gui_manager,
-    relative_rect=(0,5,92,30),
+    relative_rect=(0,13,80,20),
     object_id=ObjectID(class_id='@warning_titles'),
     container=warning_panel,
     anchors={
@@ -551,7 +553,7 @@ def load_gui(
   warning_2_title = pygame_gui.elements.UIButton(
     text='WARNING',
     manager=gui_manager,
-    relative_rect=(0,80,92,30),
+    relative_rect=(0,85,80,20),
     object_id=ObjectID(class_id='@warning_titles'),
     container=warning_panel,
     anchors={
@@ -563,7 +565,7 @@ def load_gui(
   warning_2 = pygame_gui.elements.UITextBox(
     html_text="<font color='#FF0000'>OUT OF RANGE</font>",
     manager=gui_manager,
-    relative_rect=(0,103,110,30),
+    relative_rect=(0,100,110,30),
     object_id=ObjectID(class_id='@warnings'),
     container=warning_panel,
     anchors={

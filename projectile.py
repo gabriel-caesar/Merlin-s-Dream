@@ -7,6 +7,7 @@ if TYPE_CHECKING:
   from entity import Entity
   from sound_manager import SoundManager
   from enemy import Enemy
+  from main import Player
 
 MAGIC_BOLT_COLOR = "#daf0ff"
 ARROW_COLOR = "#8EA7AE"
@@ -51,7 +52,7 @@ class Projectile():
       self.speed = 6
 
     if name == 'fire_bolt' or name == 'radial_blast':
-      if self.caster.name == 'shadow caster' or self.caster.name == 'shadow caster boss':
+      if 'shadow' in self.caster.name:
         self.color = SHADOW_BOLT_COLOR
       else:
         self.color = FIRE_BOLT_COLOR
@@ -72,7 +73,6 @@ class Projectile():
       self.speed = 2
 
     if name == 'ranged_hit':
-
       self.bb_color = ENEMY_BB_COLOR
       self.rect = pygame.Rect(origin[0], origin[1], 8, 8)
       self.color = ARROW_COLOR
@@ -180,7 +180,7 @@ class Projectile():
             e.calculate_current_bar_width(type='hp') # Recalculates the new amount of hp after the hit
 
             # Post the screen shaker event
-            pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=60))
+            pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=3, shake_factor=4))
 
             return 1 # Tells the receiver to kill the projectile
 
@@ -191,7 +191,7 @@ class Projectile():
         self.sound_manager.sounds['fire_bolt']['impact'].play()
 
         # Post the screen shaker event
-        pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=60))
+        pygame.event.post(pygame.event.Event(pygame.USEREVENT + 12, duration=3, shake_factor=4))
 
         return 1 # Tells the receiver to kill the projectile
 
@@ -281,7 +281,7 @@ class RadialBlast():
       self.firebolts.append(firebolt)
 
   # Name cast_to comes from the idea 'cast to north, cast to east...'
-  def cast_to(self, enemies_list: list[Enemy]) -> int:
+  def cast_to(self, enemies_list: list[Enemy] | None, player_enemy: Player | None = None) -> int:
 
     if self.bolts_timer > 0:
       self.bolts_timer -= 1
@@ -297,28 +297,51 @@ class RadialBlast():
           bolt.project_particles()
 
         # Checking collision with an enemy
-        for e in enemies_list:
-          if e.rect.colliderect(bolt.rect) and e.alive:
+        if enemies_list:
+          for e in enemies_list:
+            if e.rect.colliderect(bolt.rect) and e.alive:
 
-            # Prevents game crash if this bolt is not
-            # in the firebolts array by any reason
-            if bolt in self.firebolts:
-              self.firebolts.remove(bolt)
+              # Prevents game crash if this bolt is not
+              # in the firebolts array by any reason
+              if bolt in self.firebolts:
+                self.firebolts.remove(bolt)
 
-            e.take_damage(
-              dmg=bolt.dmg, 
-              is_enemy=bolt.is_enemy, 
-              bb_color=bolt.bb_color,
-              sound_manager=bolt.sound_manager
-            )
-            e.calculate_current_bar_width(type='hp')
+              e.take_damage(
+                dmg=bolt.dmg, 
+                is_enemy=bolt.is_enemy, 
+                bb_color=bolt.bb_color,
+                sound_manager=bolt.sound_manager
+              )
+              e.calculate_current_bar_width(type='hp')
 
-            # Populate the hit effect list:
-            hit_effect = HitEffect(target=e, type='fire_bolt')
-            self.entity.hit_effects_list.append(hit_effect)
+              # Populate the hit effect list:
+              hit_effect = HitEffect(target=e, type='fire_bolt')
+              self.entity.hit_effects_list.append(hit_effect)
 
-            # Play fire bolt sound
-            bolt.sound_manager.sounds['fire_bolt']['impact'].play()
+              # Play fire bolt sound
+              bolt.sound_manager.sounds['fire_bolt']['impact'].play()
+
+        elif player_enemy: # If an enemy is casting this spell
+          if player_enemy.rect.colliderect(bolt.rect) and player_enemy.alive:
+              # Prevents game crash if this bolt is not
+              # in the firebolts array by any reason
+              if bolt in self.firebolts:
+                self.firebolts.remove(bolt)
+
+              player_enemy.take_damage(
+                dmg=bolt.dmg, 
+                is_enemy=bolt.is_enemy, 
+                bb_color=bolt.bb_color,
+                sound_manager=bolt.sound_manager
+              )
+              player_enemy.calculate_current_bar_width(type='hp')
+
+              # Populate the hit effect list:
+              hit_effect = HitEffect(target=player_enemy, type='magic_bolt')
+              player_enemy.hit_effects_list.append(hit_effect)
+
+              # Play fire bolt sound
+              bolt.sound_manager.sounds['shadow_bolt']['impact'].play()
 
         match bolt.absolute_direction:
           case 'n':
@@ -357,7 +380,7 @@ class RadialBlast():
         bolt.rect.center = (int(bolt.pos[0]), int(bolt.pos[1]))
         pygame.draw.rect(
           surface=bolt.display, 
-          color=FIRE_BOLT_COLOR, 
+          color=bolt.color, 
           rect=bolt.rect
         )
 

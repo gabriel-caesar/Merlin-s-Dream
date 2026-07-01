@@ -259,7 +259,7 @@ def add_n_enemies(
   return enemy_group.sprites()
 
 def get_wave_multiplier(wave) -> float:
-    return 1 + (wave - 1) * 0.15
+    return 1 + (wave - 1) * 0.05 # Multiply by 5%
 
 def check_dead_enemy_for_xp(enemies_list: list[Enemy]) -> int:
   for enemy in enemies_list:
@@ -336,3 +336,6 @@ def change_cursor_to(state=str) -> tuple:
   )
 
   return mouse_img, mouse_rect, mouse_click_area
+
+ 
+  

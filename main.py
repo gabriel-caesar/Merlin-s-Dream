@@ -13,23 +13,27 @@ from sound_manager import SoundManager
 from spell_caster import SpellCaster
 from projectile import RadialBlast
 from events.damage_bubble import XPBubble, RegenBubble
-from warning_manager import Warning
+from warning_manager import WarningManager
 
 pygame.mixer.pre_init(44100, -16, 2, 512) 
 pygame.init()
 pygame.mixer.set_num_channels(64) # Handles more sounds at once
 clock = pygame.Clock()
 
+# Global variables
 in_main_menu = True
 game_paused = False
 in_transition = False
 shake_screen = False
+shake_factor = 4
 shake_duration = 0
 info_screen_page = 1
 play_text_bleep = False
 player_died_game_over = False
 keyboard_key = pygame.key.get_pressed()
+hostile_projectiles: list[RadialBlast] = []
 
+# Global constants
 WINDOW_SIZE = (1280, 720)
 DISPLAY_SIZE = (640, 360)
 HPBAR_WIDTH = 115
@@ -41,13 +45,17 @@ FADE_OUT = pygame.USEREVENT + 10
 LEVEL_UP = pygame.USEREVENT + 11
 SCREEN_SHAKE_EVENT = pygame.USEREVENT + 12
 CHANGE_SONG_TRACK = pygame.USEREVENT + 13
+WARNING = pygame.USEREVENT + 14
 
 # Sound manager
 sound_manager = SoundManager()
 sound_manager.load_sounds()
 sound_manager.set_global_sound_volume_to(volume=0.3)
 
-# Global variables
+# Warning manager | takes care of how long the warning shows up
+warning_manager = WarningManager()
+
+# Global variables #2
 screen = pygame.display.set_mode(WINDOW_SIZE)
 display = pygame.Surface(DISPLAY_SIZE)
 screen_veil = ScreenVeil(display)
@@ -63,7 +71,6 @@ gui_manager = utils.create_ui_manager(DISPLAY_SIZE)
 overlay_manager = utils.create_ui_manager(DISPLAY_SIZE)
 reading_earned_spell = False
 all_skills_learned = False
-warnings: list[Warning] = []
 
 # Main floor tiles
 grass_blocks = utils.get_sprites(
@@ -112,7 +119,7 @@ def load_fresh_game(
     enemy_group=enemiesgroup, 
     enemy_name='orc',
     display=display,
-    sound_manager=sound_manager
+    sound_manager=sound_manager,
   )
 
   enemies_list = enemiesgroup.sprites()
@@ -190,6 +197,29 @@ def control_screen_shake():
     else:
       shake_screen = False
 
+class MovingIndicator():
+  def __init__(
+    self,
+    frames: list[pygame.Surface],
+    display: pygame.Surface,
+  ):
+    self.image = frames[0]
+    self.rect = None
+    self.display = display
+    self.frames = frames
+    self.animation_index = 0
+
+  def update(self) -> None:
+    if self.rect:
+      self.animation_index += 0.3
+      if self.animation_index >= len(self.frames):
+        self.rect = None
+        self.animation_index = 0
+        return
+
+      self.image = self.frames[int(self.animation_index)]
+      display.blit(self.image, self.rect)
+
 class Player(Entity):
   def __init__(
     self, 
@@ -227,7 +257,6 @@ class Player(Entity):
 
     self.spell_to_be_cast = None # Identifies what spell should be cast 
     self.cursor_state = 'normal' # Helps identify if the user is using a target-spell
-    self.spell_caster = SpellCaster(entity=self, display=display, sound_manager=sound_manager)
     self.atk_range = 90
     self.projectiles = []
     self.speed = 0.8
@@ -237,6 +266,13 @@ class Player(Entity):
     self.being_targeted_by = [] # Helps with passive regeneration 
     self.learned_spells = []
     self.casting_firestorm = False
+    
+    self.spell_caster = SpellCaster(
+      entity=self, 
+      display=display, 
+      sound_manager=sound_manager,
+      warning_manager=warning_manager
+    )
 
     # Potions
     self.potions = {
@@ -449,13 +485,22 @@ class Player(Entity):
     self.image = pygame.transform.flip(self.image, self.flip, False)
 
   def cast_spell(self, name: str) -> None:
-    if name == 'fire_bolt':
+    if name == 'magic_bolt':
+      self.spell_caster.cast_magicbolt(spell_data=self.spells[name])
+
+    elif name == 'fire_bolt':
       self.spell_caster.cast_firebolt(spell_data=self.spells['fire_bolt'])
 
     elif name == 'teletransport':
       self.spell_caster.cast_teletransport(
         to=mouse_click_area,
         spell_data=self.spells['teletransport']
+      )
+
+    elif name == 'radial_blast':
+      self.spell_to_be_cast = self.spell_caster.cast_radial_blast(
+        spell_data=self.spells[name],
+        spell_to_be_cast=self.spell_to_be_cast
       )
 
     elif name == 'firestorm':
@@ -469,12 +514,6 @@ class Player(Entity):
 
       # Helps Merlin lock into the casting animation
       self.spell_caster.firestorm_casting_timer = 180
-
-    elif name == 'magic_bolt':
-      self.spell_caster.cast_magicbolt(spell_data=self.spells[name])
-
-    elif name == 'radial_blast':
-      self.spell_to_be_cast = self.spell_caster.cast_radial_blast(spell_data=self.spells[name])
 
 
   def regenerate(self, type: str) -> None:
@@ -616,14 +655,6 @@ class Player(Entity):
       # Runs any animation related to Merlin
       self.run_animation(display)
 
-      # Handling warnings such as when Merlin is out of mana
-      if warnings:
-        for w in warnings:
-          kill = w.update()
-
-          if kill:
-            warnings.remove(w)
-
       if isinstance(player.spell_to_be_cast, RadialBlast):
         self.handle_radial_blast(
           entity=self, 
@@ -633,7 +664,6 @@ class Player(Entity):
 
       if self.alive:
         self.distance_from_enemy = self.check_distance_from_enemy(enemy=self.target[1] if self.target else None)
-        self.auto_attack()
 
         if self.casting_firestorm:
           self.spell_caster.cast_firestorm(
@@ -642,6 +672,7 @@ class Player(Entity):
           )        
         
         if self.target:
+          self.auto_attack()
           t = self.target[1].rect
 
           if self.target[1].is_boss:
@@ -703,6 +734,14 @@ class Player(Entity):
     
     # If there are projectiles to load, render and handle them
     self.handle_projectiles(display, self.projectiles)
+
+  # Moving indicator spritesheet
+moving_indicator_spritesheet = utils.get_sprites(['cursor', 'moving_indicator'], 'arrow')
+moving_indicator_frames = list(moving_indicator_spritesheet.values())
+moving_indicator = MovingIndicator(
+  frames=moving_indicator_frames,
+  display=display
+)
     
 # Rendering measurements
 HALF_TILE = default_tile.width / 2
@@ -801,10 +840,15 @@ while True:
 
   display.fill("#080025")
 
+  # Updates the volume sliders to match the actual volume
+  # of the sound classes
   control_volume_sliders()
 
   # Screen shake based on spell impacts
   control_screen_shake()
+
+  # Takes care of warnings such as 'out of mana'
+  warning_manager.update()
   
   if in_main_menu:
     # Loads the main menu screen and returns a boolean value to 
@@ -848,6 +892,7 @@ while True:
         in_transition = False
         info_screen_elements['main_panel'].hide()
         info_screen_elements['main_text'].clear_all_active_effects()
+
 
       if event.type == pygame_gui.UI_TEXT_EFFECT_FINISHED:
         # Stop the text bleep sound loop
@@ -1095,6 +1140,8 @@ while True:
         else:
           display.blit(map_indicator_img, (tile.x, tile.y))
 
+    moving_indicator.update()
+
     # ================ KEYBOARD EVENT LOOP ================
 
     key = pygame.key.get_pressed()
@@ -1108,6 +1155,31 @@ while True:
         pygame.quit()
         sys.exit()
 
+      if event.type == WARNING:
+        warning = gui_elements['warnings'][event.index]
+
+        warning['title'].show()
+        warning['text'].clear()
+        warning['text'].append_html_text(event.warning)
+        warning['text'].show()
+
+        if event.warning != 'OUT OF RANGE':
+          sound_manager.sounds['warning_sound'].play() # Play warning sound
+
+        # Filtering out the warning element into pieces
+        warning_dict = {
+          'title': warning['title'],
+          'content': warning['text'],
+          'raw_text': event.warning
+        }
+
+        # Inserting the warning elements into the warning manager list
+        # only if the warning is not already there
+        if warning_dict not in warning_manager.warning_elements:
+          warning_manager.warning_elements.append(warning_dict)
+          warning_manager.timer = 240
+        
+
       if event.type == CHANGE_SONG_TRACK:
         # Playing boss music
         music_vol = round(menu_elements['music_slider'].get_current_value() / 100, ndigits=2)
@@ -1120,7 +1192,8 @@ while True:
       if event.type == SCREEN_SHAKE_EVENT:
         # Enables screen shake and main loop deals with it
         shake_screen = True
-        shake_dureation = event.duration
+        shake_duration = event.duration
+        shake_factor = event.shake_factor
 
       if event.type == PLAYER_DIED:
         game_over_elements['main_panel'].show()
@@ -1268,11 +1341,9 @@ while True:
         if event.key == pygame.K_3:
           if 'radial_blast' in player.learned_spells:
 
-            # Prevents cast collision
-            if player.spell_to_be_cast is None:
-              player.cast_spell('radial_blast')
-              gui_elements['keys']['3'].select() # Run click animation
-              gui_elements['portraits']['radial_blast'].select() # Run click animation
+            player.cast_spell('radial_blast')
+            gui_elements['keys']['3'].select() # Run click animation
+            gui_elements['portraits']['radial_blast'].select() # Run click animation
 
         if event.key == pygame.K_4:
           if 'firestorm' in player.learned_spells:
@@ -1352,6 +1423,13 @@ while True:
 
               if not enemy_found:
                 player.destination_tile = data
+                indicator_rect = hover_area.copy()
+                indicator_rect.center = (
+                  hover_area.center[0],
+                  hover_area.center[1] - 10
+                )
+                
+                moving_indicator.rect = indicator_rect
 
               # Change character facing direction based on destination
               if player.rect.y > data['hover_area'].y:
@@ -1484,11 +1562,22 @@ while True:
       player.draw(display)
 
     # Enemy essentials
-    enemiesgroup.update(map_data, player, game_paused)
+    enemiesgroup.update(map_data, player, game_paused, hostile_projectiles)
 
     # Drawing player on top of every enemy graphical layer if it is alive
     if player.alive:
       player.draw(display)
+
+    # Enemy named "shadow" will cast a radial shadow blast when dead
+    # This loop handles it
+    for radialblast in hostile_projectiles:
+      if radialblast.stop == 0:
+        if radialblast.firebolts and radialblast.bolts_already_created:
+          radialblast.stop = radialblast.cast_to(enemies_list=None, player_enemy=player)
+
+        else:
+          radialblast.create_firebolts()
+          radialblast.bolts_already_created = True
 
     utils.filter_dead_from(enemies_list)
     utils.show_enemy_hpbar_onhover(
@@ -1537,8 +1626,8 @@ while True:
   # Mouse is above all graphical layers
   display.blit(mouse_img, mouse_rect)
   
-  shake_y = random.randint(WINDOW_SIZE[1] - 4, WINDOW_SIZE[1] + 4)
-  shake_x = random.randint(WINDOW_SIZE[0] - 4, WINDOW_SIZE[0] + 4)
+  shake_y = random.randint(WINDOW_SIZE[1] - shake_factor, WINDOW_SIZE[1] + shake_factor)
+  shake_x = random.randint(WINDOW_SIZE[0] - shake_factor, WINDOW_SIZE[0] + shake_factor)
   
   if shake_screen:
     # Make display 2x bigger
@@ -1546,7 +1635,5 @@ while True:
   else:
     # Make display 2x bigger
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0,0))
-
-  # c = pygame.
 
   pygame.display.update()

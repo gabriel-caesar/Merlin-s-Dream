@@ -57,11 +57,13 @@ class HitEffect():
       if self.animation_index > len(self.animation_frames):
         self.animation_frames = []
         self.image = None
+        # It tells the hit effect animation when to get removed
         return 'destroy'
       
       else:
         self.image = self.animation_frames[int(self.animation_index)]
         display.blit(self.image, self.rect)
+        # It tells the hit effect animation when to start animating
         return 'animate'
 
   def update(self, display: pygame.Surface) -> str:

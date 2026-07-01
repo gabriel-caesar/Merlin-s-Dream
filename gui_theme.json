@@ -113,23 +113,34 @@
     }
   },
 
+  "@player_points_labels":
+  {
+    "font":
+    {
+      "name": "avqest",
+      "size": "12"
+    }
+  },
+
   "@warning_titles":
   {
     "misc":
     {
-      "shape": "rectangle"
+      "shape": "rectangle" 
+    },
+    "colours":
+    {
+      "normal_text": "#f2bd29",
+      "hovered_text": "#f2bd29",
+      "normal_bg": "#000000",
+      "normal_border": "#8d8c8a",
+      "hovered_bg": "000000",
+      "hovered_border": "#8d8c8a"
     },
     "font":
     {
       "name": "avqest",
-      "size": 10
-    },
-    "images":
-    {
-      "normal_image":
-      {
-        "path":"./assets/ui/button_image.png"
-      }
+      "size": "10"
     }
   },
 
@@ -155,7 +166,7 @@
     "colours":
     {
       "dark_bg": "#000000",
-      "normal_text": "#000000"
+      "normal_text": "#ff0000"
     },
 
     "font":

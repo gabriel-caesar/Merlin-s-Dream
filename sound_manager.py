@@ -9,8 +9,15 @@ class SoundManager():
       'activate_all_spells': None,
       'spell_channeling': None,
       'boss_laugh': None,
+      'warning_sound': None,
+      'notice_sound': None,
 
       'swing': None,
+
+      'ogre': {
+        'roar': None,
+        'impact': None
+      },
 
       'arrow': {
         'cast': None,
@@ -41,6 +48,7 @@ class SoundManager():
       },
 
       'shadow_bolt': {
+        'cast': None,
         'impact': None
       },
 
@@ -63,11 +71,14 @@ class SoundManager():
     self.sounds['level_up'] = pygame.mixer.Sound('./assets/sound/levelup.wav')
     self.sounds['merlin_death'] = pygame.mixer.Sound('./assets/sound/merlin_death.wav')
     self.sounds['activate_all_spells'] = pygame.mixer.Sound('./assets/sound/activate_all_spells.flac')
+    self.sounds['warning_sound']= pygame.mixer.Sound('./assets/sound/warning_sound.wav')
+    self.sounds['notice_sound']= pygame.mixer.Sound('./assets/sound/notice_sound.wav')
 
     # ======= SPELLS =======
     self.sounds['fire_bolt']['cast'] = pygame.mixer.Sound('./assets/sound/spells/fire_bolt/cast.ogg')
     self.sounds['fire_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/fire_bolt/impact.ogg')
     self.sounds['shadow_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/shadow_bolt/impact.ogg')
+    self.sounds['shadow_bolt']['cast'] = pygame.mixer.Sound('./assets/sound/spells/shadow_bolt/cast.wav')
     self.sounds['magic_bolt']['impact'] = pygame.mixer.Sound('./assets/sound/spells/magic_bolt/impact.wav')
     self.sounds['teletransport']['cast'] = pygame.mixer.Sound('./assets/sound/spells/tp/cast.wav')
     self.sounds['spell_channeling'] = pygame.mixer.Sound('./assets/sound/spells/channeling.ogg')
@@ -81,6 +92,8 @@ class SoundManager():
     self.sounds['arrow']['cast'] = pygame.mixer.Sound('./assets/sound/enemies/default/arrow/cast.wav')
     self.sounds['arrow']['impact'] = pygame.mixer.Sound('./assets/sound/enemies/default/arrow/impact.wav')
     self.sounds['boss_laugh'] = pygame.mixer.Sound('./assets/sound/boss_laugh.mp3')
+    self.sounds['ogre']['impact'] = pygame.mixer.Sound('./assets/sound/enemies/ogre/impact.mp3')
+    self.sounds['ogre']['roar'] = pygame.mixer.Sound('./assets/sound/enemies/ogre/roar.ogg')
 
     # ======= DIFFERENT TEXT BLEEP SOUNDS =======
     for k,_ in self.sounds['text_bleep'].items():

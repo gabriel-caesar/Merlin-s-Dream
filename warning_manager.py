@@ -1,38 +1,28 @@
-import pygame_gui
+from __future__ import annotations
+from typing import TYPE_CHECKING, TypedDict
 
-class Warning():
-  def __init__(self, gui_elements: dict, name: str):
-    self.timer = 120  
-    self.elements = gui_elements
-    self.name = name
-    self.chosen_element = None
+if TYPE_CHECKING:
+  pass
 
-    if name == 'OUT OF MANA':
-      self.chosen_element = gui_elements['warnings']['1']
-    elif name == 'COOLDOWN':
-      self.chosen_element = gui_elements['warnings']['1']
-    elif name == 'OUT OF RANGE':
-      self.chosen_element = gui_elements['warnings']['2']
-    elif name == 'NO TARGET':
-      self.chosen_element = gui_elements['warnings']['2']
+class WarningElement(TypedDict):
+    title: str
+    content: str
+    raw_text: str
 
-  def update(self) -> int:
-    if not self.chosen_element:
-      print('\nNo element was found inside Warning().\n')
-      return
-    
-    self.chosen_element['title'].show()
-    self.chosen_element['text'].show()
+class WarningManager():
+  def __init__(self):
+    self.timer = 240
+    self.warning_elements: list[WarningElement] = []
 
-    print(self.timer)
-
-    if self.timer > 0:
+  def update(self) -> None:     
+        
+    if self.timer > 0 and self.warning_elements:
       self.timer -= 1
-      return 1
     
     else:
-      self.chosen_element['title'].hide()
-      self.chosen_element['text'].hide()
-      return 0
+      for el in self.warning_elements:
+        el['content'].hide()
+        el['title'].hide()
+      self.warning_elements.clear()
 
     
